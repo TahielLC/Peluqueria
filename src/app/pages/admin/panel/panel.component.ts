@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { SeccionTextosComponent } from '../seccion-textos/seccion-textos.component';
 import { SeccionServiciosComponent } from '../seccion-servicios/seccion-servicios.component';
+import { SeccionStaffComponent } from '../seccion-staff/seccion-staff.component';
 
 /** Textos fijos del panel. */
 const MENSAJES = {
@@ -74,7 +75,7 @@ export type IdSeccion = (typeof SECCIONES)[number]['id'];
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [SeccionTextosComponent, SeccionServiciosComponent],
+  imports: [SeccionTextosComponent, SeccionServiciosComponent, SeccionStaffComponent],
   template: `
     <section class="min-h-screen bg-gray-100">
       <header class="bg-white border-b border-gray-200">
@@ -131,6 +132,8 @@ export type IdSeccion = (typeof SECCIONES)[number]['id'];
                 <app-seccion-textos />
               } @else if (seccion.id === 'servicios') {
                 <app-seccion-servicios />
+              } @else if (seccion.id === 'equipo') {
+                <app-seccion-staff />
               } @else {
                 <p class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
                   {{ mensajes.proximamente }}

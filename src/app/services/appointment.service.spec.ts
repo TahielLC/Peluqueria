@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppointmentService } from './appointment.service';
 import { SUPABASE } from './supabase.client';
+import { DatosDePeluquero } from '../models/appointment.model';
 
 /** Respuesta que el cliente falso va a devolver para una tabla. */
 type Respuesta = { data: unknown[] | null; error: { message: string } | null };
@@ -404,6 +405,81 @@ describe('AppointmentService', () => {
 
       await expect(firstValueFrom(service.cambiarActivoDeServicio(3, false))).rejects.toThrow(
         /cambiar el estado del servicio.*sin red/,
+      );
+    });
+  });
+
+  describe('actualizarPeluquero', () => {
+    const DATOS: DatosDePeluquero = {
+      nombre: 'Sofía Martínez',
+      rol: 'Colorimetría',
+      experiencia: 'Arrancó en 2020 y se especializó en color.',
+      titulo: 'Tecnicatura (2021)',
+      fotoUrl: 'https://fotos.test/sofia.jpg',
+    };
+
+    it('manda los cinco campos editables y filtra por id', async () => {
+      const { service, consultas } = armar({
+        peluqueros: { data: [{ id: 4 }], error: null },
+      });
+
+      await firstValueFrom(service.actualizarPeluquero(4, DATOS));
+
+      expect(consultas[0].tabla).toBe('peluqueros');
+      expect(consultas[0].cambios).toEqual({
+        nombre: 'Sofía Martínez',
+        rol: 'Colorimetría',
+        experiencia: 'Arrancó en 2020 y se especializó en color.',
+        titulo: 'Tecnicatura (2021)',
+        foto_url: 'https://fotos.test/sofia.jpg',
+      });
+      expect(consultas[0].filtros).toEqual([['id', 4]]);
+      // Pedir la fila de vuelta distingue "se guardó" de "no se tocó nada": un
+      // UPDATE bloqueado por RLS afecta cero filas y no da error.
+      expect(consultas[0].columnas).toBe('id');
+    });
+
+    it('guarda el título y la foto vacíos como NULL, no como cadena vacía', async () => {
+      const { service, consultas } = armar({
+        peluqueros: { data: [{ id: 4 }], error: null },
+      });
+
+      await firstValueFrom(
+        service.actualizarPeluquero(4, { ...DATOS, titulo: '', fotoUrl: '' }),
+      );
+
+      // En la base los dos campos son opcionales y `aPeluquero` mapea NULL a
+      // "sin título" y "sin foto". Una cadena vacía mostraría una línea en blanco.
+      expect(consultas[0].cambios).toMatchObject({ titulo: null, foto_url: null });
+    });
+
+    it('si la base no actualiza ninguna fila, FALLA en vez de decir que guardó', async () => {
+      // El caso RLS silencioso: cero filas y respuesta exitosa. Sin mirar las
+      // filas, el panel diría "guardado" sin haber guardado nada.
+      const { service } = armar({ peluqueros: { data: [], error: null } });
+
+      await expect(firstValueFrom(service.actualizarPeluquero(4, DATOS))).rejects.toThrow(
+        /No se guardó el perfil.*no aceptó el cambio/,
+      );
+    });
+
+    it('si la base devuelve más de una fila, también FALLA', async () => {
+      const { service } = armar({
+        peluqueros: { data: [{ id: 4 }, { id: 5 }], error: null },
+      });
+
+      await expect(firstValueFrom(service.actualizarPeluquero(4, DATOS))).rejects.toThrow(
+        /No se guardó el perfil/,
+      );
+    });
+
+    it('si Supabase devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        peluqueros: { data: null, error: { message: 'row-level security policy' } },
+      });
+
+      await expect(firstValueFrom(service.actualizarPeluquero(4, DATOS))).rejects.toThrow(
+        /guardar el perfil.*row-level security/,
       );
     });
   });

@@ -76,6 +76,8 @@ describe('AdminPanelComponent', () => {
             actualizarServicio: () => of(void 0),
             cambiarActivoDeServicio: () => of(void 0),
             crearServicio: () => of(void 0),
+            getPeluqueros: () => of([]),
+            actualizarPeluquero: () => of(void 0),
           },
         },
         { provide: TextosSitioService, useValue: { guardar: () => of(void 0) } },
@@ -244,17 +246,30 @@ describe('AdminPanelComponent', () => {
   });
 
   describe('las secciones que todavía no tienen editor', () => {
-    it('Equipo y Galería siguen mostrando el cartel de próximamente', () => {
+    it('Galería sigue mostrando el cartel de próximamente', () => {
       const { fixture, panelVisible, pestanias, texto } = armar();
 
-      for (const indice of [2, 3]) {
-        pestanias()[indice].click();
-        fixture.detectChanges();
+      pestanias()[3].click();
+      fixture.detectChanges();
 
-        expect(panelVisible()[0].querySelector('app-seccion-textos')).toBeNull();
-        expect(panelVisible()[0].querySelector('app-seccion-servicios')).toBeNull();
-        expect(texto()).toContain('Llega en la próxima entrega');
-      }
+      expect(panelVisible()[0].querySelector('app-seccion-textos')).toBeNull();
+      expect(panelVisible()[0].querySelector('app-seccion-servicios')).toBeNull();
+      expect(panelVisible()[0].querySelector('app-seccion-staff')).toBeNull();
+      expect(texto()).toContain('Llega en la próxima entrega');
+    });
+  });
+
+  describe('la sección Equipo', () => {
+    it('muestra el editor de perfiles y ya no el cartel de próximamente', () => {
+      const { fixture, panelVisible, pestanias, texto } = armar();
+
+      pestanias()[2].click();
+      fixture.detectChanges();
+
+      expect(panelVisible()[0].querySelector('app-seccion-staff')).not.toBeNull();
+      expect(panelVisible()[0].querySelector('app-seccion-textos')).toBeNull();
+      expect(panelVisible()[0].querySelector('app-seccion-servicios')).toBeNull();
+      expect(texto()).not.toContain('Llega en la próxima entrega');
     });
   });
 

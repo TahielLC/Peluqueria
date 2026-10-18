@@ -40,6 +40,17 @@ export interface Peluquero {
   fotoUrl: string;
 }
 
+/** Lo que la administradora edita de un perfil. El orden no se edita desde acá. */
+export interface DatosDePeluquero {
+  nombre: string;
+  rol: string;
+  experiencia: string;
+  /** Vacío = sin título; el sitio no muestra esa línea. */
+  titulo: string;
+  /** Vacía = sin foto. */
+  fotoUrl: string;
+}
+
 export interface Turno {
   id?: number;
   clienteId: number;

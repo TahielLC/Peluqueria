@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, from, map, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
 import {
+  DatosDePeluquero,
   DatosDeServicio,
   Peluquero,
   Servicio,
@@ -282,6 +283,43 @@ export class AppointmentService {
       map(({ data, error }) => {
         if (error) throw new Error(`No se pudieron leer los perfiles: ${error.message}`);
         return ((data ?? []) as FilaPeluquero[]).map(aPeluquero);
+      }),
+    );
+  }
+
+  /**
+   * Cambia los cinco campos editables de un perfil del staff.
+   *
+   * `titulo` y `foto_url` son opcionales en la base: se guardan como NULL cuando
+   * el campo queda vacío, no como cadena vacía. `aPeluquero` ya traduce NULL a
+   * "sin título" y "sin foto", así que el sitio no muestra una línea en blanco.
+   *
+   * El `.select('id')` no es decorativo: una política RLS de UPDATE **no lanza
+   * error**, filtra las filas en silencio y vuelve como éxito. Si no se miran
+   * las filas devueltas, el panel diría "guardado" sin haber guardado nada.
+   */
+  actualizarPeluquero(id: number, datos: DatosDePeluquero): Observable<void> {
+    const titulo = datos.titulo.trim();
+    const fotoUrl = datos.fotoUrl.trim();
+
+    return from(
+      this.supabase
+        .from('peluqueros')
+        .update({
+          nombre: datos.nombre,
+          rol: datos.rol,
+          experiencia: datos.experiencia,
+          titulo: titulo === '' ? null : titulo,
+          foto_url: fotoUrl === '' ? null : fotoUrl,
+        })
+        .eq('id', id)
+        .select('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo guardar el perfil: ${error.message}`);
+        if (!data || data.length !== 1) {
+          throw new Error(`No se guardó el perfil: ${NO_ACEPTO_EL_CAMBIO}`);
+        }
       }),
     );
   }
