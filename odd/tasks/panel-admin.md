@@ -84,7 +84,7 @@
 | T6c | S8 | inline | **hecho** | **Una sola máquina de cargando/error/vacío** (`CargaDeContenido<T>`) para las tres secciones (R2-dup-estados). Los datos siguen siendo de cada componente. Suite 119/119 y, sobre todo, los tres specs de sección pasaron **sin tocarlos**. Mutación 4/4. Commit `8fde8d9`. |
 | T7a | S4 | delegado (writer) | hecho — `1ce0b26` | **El sitio lee sus textos de la base**: los 10 de `textos_sitio` (hero, servicios, equipo, galería), con el valor de fábrica como respaldo del primer pintado. |
 | T7b | S4, S8 | delegado (writer) | hecho — `6546fe9` | **El editor de textos en el panel**: la pestaña Textos lista los 10 con su etiqueta y su ayuda, deja editar y guarda, con confirmación visible y error legible. |
-| T8 | S5, S8 | inline | pendiente | Edición de servicios y precios. |
+| T8 | S5, S8 | delegada (contexto) | hecha (`8ced0a9`) | Edición de servicios y precios. |
 | T9 | S6, S8 | inline | pendiente | Staff + subida de foto. |
 | T10 | S7, S8 | inline | pendiente | Galería + subida de foto. |
 | T11 | S8 | inline | pendiente | Manual de uso para la administradora. |
@@ -205,6 +205,14 @@
   - **`gh` 2.102.0, autenticado como `TahielLC` con scope `repo`.** Desde acá las PR se abren con `gh pr create` y se consultan con `gh pr view`, en vez de armar la llamada a la API a mano.
   - **La rama remota `feat/panel-admin` sigue existiendo**: GitHub no la borró al mergear y yo no la borré, porque borrar una rama remota no es una decisión que me corresponda. Queda anotada.
   - **El slice siguiente abre rama nueva**, `feat/panel-servicios`, desde `main`: `feat/panel-admin` ya está mergeada y quedó atrás del commit de merge.
+- **L57** (2026-10-18) — **T8 hecho: la administradora edita servicios y precios, agrega y da de baja.** Un solo escritor delegado (por contexto: la sesión venía larga) y el diff revisado por mí, archivo por archivo: `8ced0a9`. Suite **186/186** en 16 archivos (eran 155), sin dependencias nuevas ni `@angular/forms`.
+  - **La baja es lógica (`activo = false`), nunca un DELETE.** El motivo no es estético: los turnos que referencien un servicio no tienen que romperse, y el sitio público ya filtra los activos. Por eso el panel lista **todos** los servicios, con los inactivos atenuados y la acción "Volver a publicar": sin eso, una baja por error sería irreversible desde la pantalla, que es justo lo que no puede pasarle a alguien que no sabe de apps.
+  - **Las tres escrituras verifican la fila devuelta.** Es la lección de L54 aplicada al panel: un UPDATE bloqueado por RLS **no lanza error**, filtra en silencio y vuelve como éxito. Sin `.select('id')` y sin mirar las filas, el panel diría "Guardado" sin haber guardado. Cero filas es fallo en `actualizarServicio`, en `cambiarActivoDeServicio` y también en el insert.
+  - **El precio se escribe con coma.** El campo es de texto con `inputmode="decimal"`, no `type="number"`, porque la administradora escribe `12,50` y el navegador rechaza la coma; se normaliza a número y se redondea a dos decimales, lo mismo que haría `numeric(10,2)`.
+  - **El `orden` de un servicio nuevo es el máximo + 1**, así entra al final y no arriba de todo.
+  - **Evidencia:** RED observado en cada etapa, 186/186 en verde, y una mutación —hacer que `actualizarServicio` ignore las filas devueltas— puso en rojo el test del caso "cero filas". `npm test`: `Test Files 16 passed (16)`, `Tests 186 passed (186)`.
+  - **Assess de la rebanada** (`0b765a6..8ced0a9`): `risk: medium`, `review_due: false`, motivo `under_budget`. Se registra; no abre revisión nativa.
+
 
 
 
