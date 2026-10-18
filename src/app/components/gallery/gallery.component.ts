@@ -1,6 +1,8 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { TrabajoGaleria } from '../../models/salon.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
+import { MENSAJES, CargaDeContenido } from '../estados';
 
 const PANEL_WIDTH = 340;
 const PANEL_HEIGHT = 430;
@@ -25,13 +27,26 @@ const DURATION = '900ms';
 
       <div class="relative max-w-6xl mx-auto px-4">
         <h2 class="text-3xl md:text-4xl font-bold text-center mb-3 text-white tracking-tight">
-          Galería de Trabajos
+          {{ textos.texto('galeria_titulo') }}
         </h2>
         <p class="text-gray-400 text-center mb-12">
-          Echale un vistazo a nuestros últimos cortes y estilos.
+          {{ textos.texto('galeria_bajada') }}
         </p>
 
-        @if (total() === 0) {
+        @if (cargando()) {
+          <p class="text-center text-gray-400 py-24" role="status">{{ mensajes.cargando }}</p>
+        } @else if (error()) {
+          <div class="py-24 text-center">
+            <p class="text-gray-400 mb-6">{{ error() }}</p>
+            <button
+              type="button"
+              (click)="cargar()"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+            >
+              {{ mensajes.reintentar }}
+            </button>
+          </div>
+        } @else if (total() === 0) {
           <p class="text-center text-gray-600 py-24">Todavía no hay trabajos para mostrar.</p>
         } @else {
           <div
@@ -156,6 +171,9 @@ const DURATION = '900ms';
 export class GalleryComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
 
+  /** Los textos del sitio: los pide el home una sola vez y las secciones leen. */
+  readonly textos = inject(TextosSitioService);
+
   readonly panelWidth = PANEL_WIDTH;
   readonly panelHeight = PANEL_HEIGHT;
   readonly duration = DURATION;
@@ -164,6 +182,22 @@ export class GalleryComponent implements OnInit {
 
   readonly galeria = signal<TrabajoGaleria[]>([]);
   readonly currentIndex = signal(0);
+
+  /** Las tres reglas de cargando / error / vacío viven una sola vez: `estados.ts`. */
+  private readonly carga = new CargaDeContenido<TrabajoGaleria[]>(
+    () => this.appointmentService.getGaleria(),
+    (datos) => {
+      this.galeria.set(datos);
+      // Contenido nuevo, cilindro al principio: si no, quedaría girado a un
+      // ángulo de la lista anterior que puede no existir.
+      this.currentIndex.set(0);
+    },
+  );
+
+  readonly cargando = this.carga.cargando;
+  readonly error = this.carga.error;
+
+  readonly mensajes = MENSAJES;
 
   readonly total = computed(() => this.galeria().length);
   readonly hasMultiple = computed(() => this.total() > 1);
@@ -192,10 +226,12 @@ export class GalleryComponent implements OnInit {
   private touchStartX = 0;
 
   ngOnInit(): void {
-    this.appointmentService.getGaleria().subscribe((data) => {
-      this.galeria.set(data);
-      this.currentIndex.set(0);
-    });
+    this.cargar();
+  }
+
+  /** Pide los trabajos. Separado del arranque para que "Reintentar" lo repita. */
+  cargar(): void {
+    this.carga.cargar();
   }
 
   panelTransform(index: number): string {

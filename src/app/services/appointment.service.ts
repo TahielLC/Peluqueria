@@ -1,67 +1,220 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, from, map, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
 import { Servicio, Peluquero, Turno } from '../models/appointment.model';
-import { TrabajoGaleria } from '../models/salon.model';
+import { ClaveDeTexto, TextoDeSitio, TrabajoGaleria } from '../models/salon.model';
+import { SUPABASE } from './supabase.client';
 
+/**
+ * Fila cruda de `public.servicios`, con los nombres de columna tal como están
+ * en Postgres. Se declaran aparte del modelo de la app a propósito: la base usa
+ * snake_case y la app camelCase, y la traducción entre los dos es justamente lo
+ * que hace este servicio.
+ */
+interface FilaServicio {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  duracion_minutos: number;
+  precio: number;
+}
+
+interface FilaPeluquero {
+  id: number;
+  nombre: string;
+  rol: string;
+  experiencia: string;
+  titulo: string | null;
+  foto_url: string | null;
+}
+
+interface FilaGaleria {
+  id: number;
+  titulo: string;
+  categoria: string;
+  imagen_url: string | null;
+}
+
+function aServicio(fila: FilaServicio): Servicio {
+  return {
+    id: fila.id,
+    nombre: fila.nombre,
+    descripcion: fila.descripcion,
+    duracionMinutos: fila.duracion_minutos,
+    // `precio` es `numeric` en Postgres. Se pasa por Number() porque si llegara
+    // como texto, el formateador de la UI (`Number.isInteger`) daría false y
+    // después llamaría a `.toFixed()`, que sobre un string explota.
+    precio: Number(fila.precio),
+  };
+}
+
+function aPeluquero(fila: FilaPeluquero): Peluquero {
+  return {
+    id: fila.id,
+    nombre: fila.nombre,
+    rol: fila.rol,
+    experiencia: fila.experiencia,
+    // `titulo` es opcional en el modelo: en la base puede ser NULL y la UI
+    // decide no mostrar esa línea cuando el campo no está.
+    titulo: fila.titulo ?? undefined,
+    fotoUrl: fila.foto_url ?? '',
+  };
+}
+
+function aTrabajoGaleria(fila: FilaGaleria): TrabajoGaleria {
+  return {
+    id: fila.id,
+    titulo: fila.titulo,
+    // La columna es texto libre en la base; el modelo la restringe a un conjunto
+    // cerrado. El panel de administración sólo ofrece esas opciones, así que el
+    // valor siempre viene de ahí.
+    categoria: fila.categoria as TrabajoGaleria['categoria'],
+    imagenUrl: fila.imagen_url ?? '',
+  };
+}
+
+interface FilaTexto {
+  clave: string;
+  valor: string;
+  etiqueta: string;
+  ayuda: string | null;
+}
+
+function aTexto(fila: FilaTexto): TextoDeSitio {
+  return {
+    // La columna es texto libre en la base; el modelo la restringe al conjunto
+    // cerrado de claves. Las filas las carga el mismo schema que define el
+    // modelo, así que el valor siempre viene de ahí.
+    clave: fila.clave as ClaveDeTexto,
+    valor: fila.valor,
+    etiqueta: fila.etiqueta,
+    ayuda: fila.ayuda,
+  };
+}
+
+/**
+ * Acceso al contenido del sitio, guardado en Supabase.
+ *
+ * El contrato no cambió: sigue devolviendo `Observable<T[]>` y los componentes
+ * lo consumen igual que antes. Lo único que cambió es de dónde salen los datos.
+ *
+ * Sobre errores: si Supabase falla, el Observable **falla**. No se devuelve una
+ * lista vacía, porque una lista vacía es un mensaje distinto ("todavía no hay
+ * contenido cargado") y confundirlos haría que un problema de red pareciera un
+ * sitio sin cargar.
+ */
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AppointmentService {
-  private http = inject(HttpClient);
-  private apiUrl = 'https://api.tupeluqueria.com/api'; 
+  private supabase = inject(SUPABASE);
 
-  private mockServicios: Servicio[] = [
-    { id: 1, nombre: 'Corte Clásico', descripcion: 'Corte de cabello tradicional con tijera y máquina.', duracionMinutos: 30, precio: 15.00 },
-    { id: 2, nombre: 'Corte y Barba', descripcion: 'Corte completo de cabello y perfilado de barba con toalla caliente.', duracionMinutos: 45, precio: 22.00 },
-    { id: 3, nombre: 'Tintura / Color', descripcion: 'Aplicación de tintes profesionales y tratamientos de color.', duracionMinutos: 90, precio: 40.00 }
-  ];
+  getServicios(): Observable<Servicio[]> {
+    return from(
+      this.supabase
+        .from('servicios')
+        .select('id, nombre, descripcion, duracion_minutos, precio')
+        .eq('activo', true)
+        .order('orden')
+        .order('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los servicios: ${error.message}`);
+        return ((data ?? []) as FilaServicio[]).map(aServicio);
+      }),
+    );
+  }
 
-  // ---------------------------------------------------------------------------
-  // ATENCIÓN: datos PLACEHOLDER.
-  // Los textos de `experiencia` y `titulo` son inventados para poblar la UI.
-  // NO son credenciales reales. Reemplazar por la información verdadera de cada
-  // profesional antes de publicar el sitio.
-  // ---------------------------------------------------------------------------
-  private mockPeluqueros: Peluquero[] = [
-    {
-      id: 1,
-      nombre: 'Carlos "El Maestro" Gómez',
-      rol: 'Especialista en cortes clásicos y navaja',
-      experiencia: 'Corta y afeita desde 2018. Se formó en barbería tradicional y trabaja con navaja, toalla caliente y tijera. Es el referente del local para cortes clásicos y afeitados de precisión.',
-      titulo: 'Curso de Barbería Clásica — Escuela de Oficios (2018)',
-      fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=600&auto=format&fit=crop'
-    },
-    {
-      id: 2,
-      nombre: 'Sofía Martínez',
-      rol: 'Experta en colorimetría y peinados',
-      experiencia: 'Arrancó en 2020 en salones de estilismo. Domina tinturas, decoloraciones y tratamientos de color, y se encarga de los peinados de gala para eventos.',
-      titulo: 'Tecnicatura en Peluquería y Colorimetría (2021)',
-      fotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop'
-    },
-    {
-      id: 3,
-      nombre: 'Lucas Pérez',
-      rol: 'Especialista en Fade y estilos urbanos',
-      experiencia: 'Trabaja desde 2022 con foco en degradados y cortes de tendencia. Se mantiene al día con las técnicas que se ven en redes y las adapta a cada tipo de cabello.',
-      titulo: 'Taller de Fade y Máquina — Certificación (2023)',
-      fotoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=600&auto=format&fit=crop'
-    }
-  ];
+  getPeluqueros(): Observable<Peluquero[]> {
+    return from(
+      this.supabase
+        .from('peluqueros')
+        .select('id, nombre, rol, experiencia, titulo, foto_url')
+        .eq('activo', true)
+        .order('orden')
+        .order('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los perfiles: ${error.message}`);
+        return ((data ?? []) as FilaPeluquero[]).map(aPeluquero);
+      }),
+    );
+  }
 
-  private mockGaleria: TrabajoGaleria[] = [
-    { id: 1, titulo: 'Fade Moderno', categoria: 'Corte', imagenUrl: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?q=80&w=600&auto=format&fit=crop' },
-    { id: 2, titulo: 'Barba Estilizada', categoria: 'Barba', imagenUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=600&auto=format&fit=crop' },
-    { id: 3, titulo: 'Peinado de Gala', categoria: 'Peinado', imagenUrl: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?q=80&w=600&auto=format&fit=crop' }
-  ];
+  getGaleria(): Observable<TrabajoGaleria[]> {
+    return from(
+      this.supabase
+        .from('galeria')
+        .select('id, titulo, categoria, imagen_url')
+        .eq('activo', true)
+        .order('orden')
+        .order('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los trabajos: ${error.message}`);
+        return ((data ?? []) as FilaGaleria[]).map(aTrabajoGaleria);
+      }),
+    );
+  }
 
-  getServicios(): Observable<Servicio[]> { return of(this.mockServicios).pipe(delay(300)); }
-  getPeluqueros(): Observable<Peluquero[]> { return of(this.mockPeluqueros).pipe(delay(300)); }
-  getGaleria(): Observable<TrabajoGaleria[]> { return of(this.mockGaleria).pipe(delay(300)); }
+  /**
+   * Los textos editables del sitio, en el orden en que los muestra el panel.
+   *
+   * Devuelve también la etiqueta y la ayuda de cada uno: son lo que hace que la
+   * pantalla de edición se lea en castellano en vez de mostrar `hero_titulo`.
+   */
+  getTextos(): Observable<TextoDeSitio[]> {
+    return from(
+      this.supabase
+        .from('textos_sitio')
+        .select('clave, valor, etiqueta, ayuda')
+        .order('orden'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los textos del sitio: ${error.message}`);
+        return ((data ?? []) as FilaTexto[]).map(aTexto);
+      }),
+    );
+  }
+
+  /**
+   * Guarda el valor de un texto. La clave no se toca: es la identidad de la fila.
+   *
+   * El `.select('clave')` del final no es decorativo, y el motivo importa. Una
+   * política RLS de UPDATE se comporta distinto que una de INSERT: donde el
+   * INSERT falla con error, el UPDATE **no actualiza las filas que no pasan el
+   * filtro y no dice nada**. Si esta sesión dejara de ser la administradora, el
+   * UPDATE afectaría cero filas y volvería como éxito, y el panel diría
+   * "guardado" sin haber guardado nada. Pidiendo la fila de vuelta se distingue
+   * "se guardó" de "no se tocó nada", que es la única diferencia que le importa
+   * a quien está del otro lado de la pantalla.
+   */
+  guardarTexto(clave: ClaveDeTexto, valor: string): Observable<void> {
+    return from(
+      this.supabase
+        .from('textos_sitio')
+        .update({ valor })
+        .eq('clave', clave)
+        .select('clave'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo guardar el texto: ${error.message}`);
+        if (!data || data.length === 0) {
+          throw new Error(
+            'No se guardó el texto: la base no aceptó el cambio. Probá de nuevo; si sigue igual, avisá a quien te dio el acceso.',
+          );
+        }
+      }),
+    );
+  }
+
+  /**
+   * ESTE MÉTODO TODAVÍA NO GUARDA NADA. Devuelve éxito sin persistir, igual que
+   * antes de este cambio. Reservar turnos está fuera del alcance de esta feature
+   * (son turnos, no contenido, y necesitan su propia tabla y sus propias
+   * políticas). Queda anotado como deuda, no como algo resuelto.
+   */
   agendarTurno(turno: Turno): Observable<{ success: boolean; message: string }> {
-    console.log('Turno a guardar en SQL:', turno);
     return of({ success: true, message: '¡Turno registrado con éxito!' }).pipe(delay(500));
   }
 }

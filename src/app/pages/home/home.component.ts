@@ -1,8 +1,9 @@
-import { Component } from "@angular/core";
+import { Component, inject } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { StaffComponent } from "../../components/staff/staff.component";
 import { GalleryComponent } from "../../components/gallery/gallery.component";
 import { ServiciosComponent } from "../../components/servicios/servicios.component";
+import { TextosSitioService } from "../../services/textos-sitio.service";
 
 @Component({
   selector: "app-home",
@@ -13,20 +14,19 @@ import { ServiciosComponent } from "../../components/servicios/servicios.compone
       <div class="max-w-3xl mx-auto">
         <span
           class="text-indigo-400 font-semibold tracking-wide uppercase text-sm"
-          >Estilo & Vanguardia</span
+          >{{ textos.texto("hero_badge") }}</span
         >
         <h1 class="text-4xl md:text-6xl font-extrabold mt-2 mb-6">
-          Peluquería Estilo & Arte
+          {{ textos.texto("hero_titulo") }}
         </h1>
         <p class="text-gray-300 text-lg mb-8">
-          El lugar donde tu imagen se transforma con las últimas tendencias en
-          cortes, barbas y estilismo.
+          {{ textos.texto("hero_subtitulo") }}
         </p>
         <a
           href="#galeria"
           class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3 rounded-full transition-colors shadow-lg inline-block"
         >
-          Ver Trabajos
+          {{ textos.texto("hero_cta") }}
         </a>
       </div>
     </header>
@@ -36,4 +36,15 @@ import { ServiciosComponent } from "../../components/servicios/servicios.compone
     <app-staff></app-staff>
   `,
 })
-export class HomeComponent {}
+export class HomeComponent {
+  /**
+   * Los textos del sitio. El home es el único que los pide, porque es la
+   * pantalla que siempre está en el DOM; las tres secciones leen de esta misma
+   * copia y no hacen su propio pedido.
+   */
+  readonly textos = inject(TextosSitioService);
+
+  constructor() {
+    this.textos.cargar();
+  }
+}

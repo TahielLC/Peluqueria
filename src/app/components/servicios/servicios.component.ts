@@ -1,6 +1,8 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { Servicio } from '../../models/appointment.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
+import { MENSAJES, CargaDeContenido } from '../estados';
 
 @Component({
   selector: 'app-servicios',
@@ -8,10 +10,23 @@ import { Servicio } from '../../models/appointment.model';
   template: `
     <section id="servicios" class="py-12 bg-gray-50 px-4">
       <div class="max-w-6xl mx-auto text-center">
-        <h2 class="text-3xl font-bold mb-4 text-gray-800">Nuestros Servicios</h2>
-        <p class="text-gray-600 mb-10">Precios claros, sin sorpresas. Elegí el tuyo.</p>
+        <h2 class="text-3xl font-bold mb-4 text-gray-800">{{ textos.texto('servicios_titulo') }}</h2>
+        <p class="text-gray-600 mb-10">{{ textos.texto('servicios_bajada') }}</p>
 
-        @if (servicios().length === 0) {
+        @if (cargando()) {
+          <p class="text-gray-400 py-12" role="status">{{ mensajes.cargando }}</p>
+        } @else if (error()) {
+          <div class="py-12">
+            <p class="text-gray-600 mb-6">{{ error() }}</p>
+            <button
+              type="button"
+              (click)="cargar()"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+            >
+              {{ mensajes.reintentar }}
+            </button>
+          </div>
+        } @else if (servicios().length === 0) {
           <p class="text-gray-400 py-12">Todavía no hay servicios cargados.</p>
         } @else {
           <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -36,12 +51,32 @@ import { Servicio } from '../../models/appointment.model';
 export class ServiciosComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
 
+  /** Los textos del sitio: los pide el home una sola vez y las secciones leen. */
+  readonly textos = inject(TextosSitioService);
+
   readonly servicios = signal<Servicio[]>([]);
 
+  /**
+   * Las tres reglas de cargando / error / vacío viven una sola vez, en
+   * `estados.ts`, y son las mismas para las tres secciones del sitio.
+   */
+  private readonly carga = new CargaDeContenido<Servicio[]>(
+    () => this.appointmentService.getServicios(),
+    (datos) => this.servicios.set(datos),
+  );
+
+  readonly cargando = this.carga.cargando;
+  readonly error = this.carga.error;
+
+  readonly mensajes = MENSAJES;
+
   ngOnInit(): void {
-    this.appointmentService.getServicios().subscribe((data) => {
-      this.servicios.set(data);
-    });
+    this.cargar();
+  }
+
+  /** Pide los servicios. Separado del arranque para que "Reintentar" lo repita. */
+  cargar(): void {
+    this.carga.cargar();
   }
 
   precio(valor: number): string {

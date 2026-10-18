@@ -1,6 +1,8 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { Peluquero } from '../../models/appointment.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
+import { MENSAJES, CargaDeContenido } from '../estados';
 
 const SWIPE_THRESHOLD = 50;
 
@@ -10,10 +12,23 @@ const SWIPE_THRESHOLD = 50;
   template: `
     <section id="staff" class="bg-gray-50 px-4 py-16">
       <div class="mx-auto max-w-4xl text-center">
-        <h2 class="mb-3 text-3xl font-bold text-gray-800">Nuestro Equipo</h2>
-        <p class="mb-10 text-gray-600">Profesionales apasionados por el cuidado de tu imagen.</p>
+        <h2 class="mb-3 text-3xl font-bold text-gray-800">{{ textos.texto('staff_titulo') }}</h2>
+        <p class="mb-10 text-gray-600">{{ textos.texto('staff_bajada') }}</p>
 
-        @if (total() === 0) {
+        @if (cargando()) {
+          <p class="py-16 text-gray-400" role="status">{{ mensajes.cargando }}</p>
+        } @else if (error()) {
+          <div class="py-16">
+            <p class="text-gray-600 mb-6">{{ error() }}</p>
+            <button
+              type="button"
+              (click)="cargar()"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+            >
+              {{ mensajes.reintentar }}
+            </button>
+          </div>
+        } @else if (total() === 0) {
           <p class="py-16 text-gray-400">Todavía no hay profesionales cargados.</p>
         } @else {
           <div
@@ -114,8 +129,27 @@ const SWIPE_THRESHOLD = 50;
 export class StaffComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
 
+  /** Los textos del sitio: los pide el home una sola vez y las secciones leen. */
+  readonly textos = inject(TextosSitioService);
+
   readonly peluqueros = signal<Peluquero[]>([]);
   readonly currentIndex = signal(0);
+
+  /** Las tres reglas de cargando / error / vacío viven una sola vez: `estados.ts`. */
+  private readonly carga = new CargaDeContenido<Peluquero[]>(
+    () => this.appointmentService.getPeluqueros(),
+    (datos) => {
+      this.peluqueros.set(datos);
+      // Contenido nuevo, carrusel al principio: si no, quedaría parado en un
+      // índice de la lista anterior que puede no existir.
+      this.currentIndex.set(0);
+    },
+  );
+
+  readonly cargando = this.carga.cargando;
+  readonly error = this.carga.error;
+
+  readonly mensajes = MENSAJES;
 
   readonly total = computed(() => this.peluqueros().length);
   readonly hasMultiple = computed(() => this.total() > 1);
@@ -130,10 +164,12 @@ export class StaffComponent implements OnInit {
   private touchStartX = 0;
 
   ngOnInit(): void {
-    this.appointmentService.getPeluqueros().subscribe((data) => {
-      this.peluqueros.set(data);
-      this.currentIndex.set(0);
-    });
+    this.cargar();
+  }
+
+  /** Pide los perfiles. Separado del arranque para que "Reintentar" lo repita. */
+  cargar(): void {
+    this.carga.cargar();
   }
 
   isActive(index: number): boolean {
