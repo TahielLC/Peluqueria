@@ -8,14 +8,25 @@ import { SUPABASE } from './supabase.client';
 /** Respuesta que el cliente falso va a devolver para una tabla. */
 type Respuesta = { data: unknown[] | null; error: { message: string } | null };
 
+/**
+ * Una respuesta o una cola de respuestas para la misma tabla.
+ *
+ * La cola hace falta cuando una sola operación consulta dos veces la misma
+ * tabla (por ejemplo `crearServicio`: primero lee el orden máximo y después
+ * inserta). Una respuesta suelta se devuelve siempre, como antes.
+ */
+type Respuestas = Record<string, Respuesta | Respuesta[]>;
+
 /** Cómo se armó una consulta, para poder verificarla después. */
 interface Consulta {
   tabla: string;
   columnas: string;
   filtros: Array<[string, unknown]>;
   orden: string[];
-  /** Los valores de un `update`, o `null` si la consulta sólo lee. */
+  /** Los valores de un `update`, o `null` si la consulta no actualiza. */
   cambios: Record<string, unknown> | null;
+  /** Los valores de un `insert`, o `null` si la consulta no inserta. */
+  insercion: Record<string, unknown> | null;
 }
 
 /**
@@ -26,12 +37,19 @@ interface Consulta {
  * sin esto, cada corrida de la suite pegarle al proyecto de Supabase sería
  * lento, frágil y filtraría datos de producción a los tests.
  */
-function crearSupabaseFalso(respuestas: Record<string, Respuesta>) {
+function crearSupabaseFalso(respuestas: Respuestas) {
   const consultas: Consulta[] = [];
 
   const cliente = {
     from(tabla: string) {
-      const consulta: Consulta = { tabla, columnas: '', filtros: [], orden: [], cambios: null };
+      const consulta: Consulta = {
+        tabla,
+        columnas: '',
+        filtros: [],
+        orden: [],
+        cambios: null,
+        insercion: null,
+      };
       consultas.push(consulta);
 
       const constructor = {
@@ -54,10 +72,22 @@ function crearSupabaseFalso(respuestas: Record<string, Respuesta>) {
           consulta.cambios = cambios;
           return constructor;
         },
+        // `insert` es la contraparte de `update` para las filas nuevas.
+        insert(valores: Record<string, unknown>) {
+          consulta.insercion = valores;
+          return constructor;
+        },
         // Hace que el constructor sea "thenable", que es lo que `from()` de RxJS
         // necesita para envolverlo en un Observable.
         then<T>(onOk: (valor: Respuesta) => T, onErr?: (e: unknown) => T) {
-          return Promise.resolve(respuestas[tabla] ?? { data: [], error: null }).then(onOk, onErr);
+          const configurada = respuestas[tabla];
+          // Una cola se consume de a una respuesta por consulta. Una respuesta
+          // suelta se repite: es lo que esperan los tests que leen una sola vez.
+          const respuesta = Array.isArray(configurada)
+            ? (configurada.shift() ?? { data: [], error: null })
+            : (configurada ?? { data: [], error: null });
+
+          return Promise.resolve(respuesta).then(onOk, onErr);
         },
       };
 
@@ -70,7 +100,7 @@ function crearSupabaseFalso(respuestas: Record<string, Respuesta>) {
 
 describe('AppointmentService', () => {
   /** Arma el servicio con un cliente falso y devuelve también lo consultado. */
-  function armar(respuestas: Record<string, Respuesta>) {
+  function armar(respuestas: Respuestas) {
     const { cliente, consultas } = crearSupabaseFalso(respuestas);
 
     TestBed.resetTestingModule();
@@ -166,6 +196,214 @@ describe('AppointmentService', () => {
 
       await expect(firstValueFrom(service.getServicios())).rejects.toThrow(
         /servicios.*connection refused/,
+      );
+    });
+  });
+
+  describe('getTodosLosServicios', () => {
+    it('trae también los inactivos, con su estado, y pide el orden del panel', async () => {
+      const { service, consultas } = armar({
+        servicios: {
+          data: [
+            {
+              id: 2,
+              nombre: 'Perfilado de barba',
+              descripcion: 'Con toalla caliente.',
+              duracion_minutos: 20,
+              precio: 12.5,
+              activo: false,
+            },
+            {
+              id: 1,
+              nombre: 'Corte Clásico',
+              descripcion: 'Corte tradicional.',
+              duracion_minutos: 30,
+              precio: 15,
+              activo: true,
+            },
+          ],
+          error: null,
+        },
+      });
+
+      const servicios = await firstValueFrom(service.getTodosLosServicios());
+
+      expect(servicios).toEqual([
+        {
+          id: 2,
+          nombre: 'Perfilado de barba',
+          descripcion: 'Con toalla caliente.',
+          duracionMinutos: 20,
+          precio: 12.5,
+          activo: false,
+        },
+        {
+          id: 1,
+          nombre: 'Corte Clásico',
+          descripcion: 'Corte tradicional.',
+          duracionMinutos: 30,
+          precio: 15,
+          activo: true,
+        },
+      ]);
+
+      expect(consultas[0].tabla).toBe('servicios');
+      // Sin filtro de activo: el panel necesita ver también lo dado de baja para
+      // poder volver a publicarlo.
+      expect(consultas[0].filtros).toEqual([]);
+      expect(consultas[0].orden).toEqual(['orden', 'id']);
+    });
+
+    it('si Supabase falla, el Observable falla', async () => {
+      const { service } = armar({ servicios: { data: null, error: { message: 'sin red' } } });
+
+      await expect(firstValueFrom(service.getTodosLosServicios())).rejects.toThrow(
+        /servicios.*sin red/,
+      );
+    });
+  });
+
+  describe('crearServicio', () => {
+    const DATOS = {
+      nombre: 'Color completo',
+      descripcion: 'Coloración y brushing.',
+      duracionMinutos: 90,
+      precio: 42.5,
+    };
+
+    it('calcula el orden como el máximo + 1 e inserta activo con los nombres de la base', async () => {
+      const { service, consultas } = armar({
+        servicios: [
+          // Primero la lectura del orden de toda la tabla, después la fila nueva.
+          { data: [{ orden: 0 }, { orden: 4 }, { orden: 2 }], error: null },
+          { data: [{ id: 9 }], error: null },
+        ],
+      });
+
+      await firstValueFrom(service.crearServicio(DATOS));
+
+      expect(consultas).toHaveLength(2);
+
+      // La lectura del orden es de toda la tabla: sin filtro ni orden, a
+      // propósito. Es una tabla de tres filas, no hace falta paginar.
+      expect(consultas[0].columnas).toBe('orden');
+      expect(consultas[0].filtros).toEqual([]);
+      expect(consultas[0].orden).toEqual([]);
+
+      expect(consultas[1].insercion).toEqual({
+        nombre: 'Color completo',
+        descripcion: 'Coloración y brushing.',
+        duracion_minutos: 90,
+        precio: 42.5,
+        orden: 5,
+        activo: true,
+      });
+      expect(consultas[1].columnas).toBe('id');
+    });
+
+    it('si la base no devuelve la fila insertada, FALLA en vez de decir que agregó', async () => {
+      const { service } = armar({
+        servicios: [
+          { data: [], error: null },
+          { data: [], error: null },
+        ],
+      });
+
+      await expect(firstValueFrom(service.crearServicio(DATOS))).rejects.toThrow(
+        /No se agregó el servicio.*no aceptó el cambio/,
+      );
+    });
+
+    it('si el insert devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        servicios: [
+          { data: [], error: null },
+          { data: null, error: { message: 'row-level security policy' } },
+        ],
+      });
+
+      await expect(firstValueFrom(service.crearServicio(DATOS))).rejects.toThrow(
+        /agregar el servicio.*row-level security/,
+      );
+    });
+  });
+
+  describe('actualizarServicio', () => {
+    const DATOS = {
+      nombre: 'Corte Premium',
+      descripcion: 'Con lavado incluido.',
+      duracionMinutos: 45,
+      precio: 18.75,
+    };
+
+    it('manda los cuatro campos editables y filtra por id', async () => {
+      const { service, consultas } = armar({
+        servicios: { data: [{ id: 7 }], error: null },
+      });
+
+      await firstValueFrom(service.actualizarServicio(7, DATOS));
+
+      expect(consultas[0].tabla).toBe('servicios');
+      expect(consultas[0].cambios).toEqual({
+        nombre: 'Corte Premium',
+        descripcion: 'Con lavado incluido.',
+        duracion_minutos: 45,
+        precio: 18.75,
+      });
+      expect(consultas[0].filtros).toEqual([['id', 7]]);
+      // Pedir la fila de vuelta es lo que distingue "se guardó" de "no se tocó
+      // nada": un UPDATE bloqueado por RLS afecta cero filas y no da error.
+      expect(consultas[0].columnas).toBe('id');
+    });
+
+    it('si la base no actualiza ninguna fila, FALLA en vez de decir que guardó', async () => {
+      const { service } = armar({ servicios: { data: [], error: null } });
+
+      await expect(firstValueFrom(service.actualizarServicio(7, DATOS))).rejects.toThrow(
+        /No se guardó el servicio.*no aceptó el cambio/,
+      );
+    });
+
+    it('si Supabase devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        servicios: { data: null, error: { message: 'sin red' } },
+      });
+
+      await expect(firstValueFrom(service.actualizarServicio(7, DATOS))).rejects.toThrow(
+        /guardar el servicio.*sin red/,
+      );
+    });
+  });
+
+  describe('cambiarActivoDeServicio', () => {
+    it('manda el estado nuevo y filtra por id', async () => {
+      const { service, consultas } = armar({
+        servicios: { data: [{ id: 3 }], error: null },
+      });
+
+      await firstValueFrom(service.cambiarActivoDeServicio(3, false));
+
+      expect(consultas[0].tabla).toBe('servicios');
+      expect(consultas[0].cambios).toEqual({ activo: false });
+      expect(consultas[0].filtros).toEqual([['id', 3]]);
+      expect(consultas[0].columnas).toBe('id');
+    });
+
+    it('si la base no actualiza ninguna fila, FALLA en vez de decir que cambió', async () => {
+      const { service } = armar({ servicios: { data: [], error: null } });
+
+      await expect(firstValueFrom(service.cambiarActivoDeServicio(3, false))).rejects.toThrow(
+        /No se cambió el estado del servicio.*no aceptó el cambio/,
+      );
+    });
+
+    it('si Supabase devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        servicios: { data: null, error: { message: 'sin red' } },
+      });
+
+      await expect(firstValueFrom(service.cambiarActivoDeServicio(3, false))).rejects.toThrow(
+        /cambiar el estado del servicio.*sin red/,
       );
     });
   });
