@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { TrabajoGaleria } from '../../models/salon.model';
-import { MENSAJES } from '../estados';
+import { MENSAJES, CargaDeContenido } from '../estados';
 
 const PANEL_WIDTH = 340;
 const PANEL_HEIGHT = 430;
@@ -179,9 +179,19 @@ export class GalleryComponent implements OnInit {
   readonly galeria = signal<TrabajoGaleria[]>([]);
   readonly currentIndex = signal(0);
 
-  /** Arranca en `true`: antes de que llegue la respuesta no se sabe si hay contenido. */
-  readonly cargando = signal(true);
-  readonly error = signal<string | null>(null);
+  /** Las tres reglas de cargando / error / vacío viven una sola vez: `estados.ts`. */
+  private readonly carga = new CargaDeContenido<TrabajoGaleria[]>(
+    () => this.appointmentService.getGaleria(),
+    (datos) => {
+      this.galeria.set(datos);
+      // Contenido nuevo, cilindro al principio: si no, quedaría girado a un
+      // ángulo de la lista anterior que puede no existir.
+      this.currentIndex.set(0);
+    },
+  );
+
+  readonly cargando = this.carga.cargando;
+  readonly error = this.carga.error;
 
   readonly mensajes = MENSAJES;
 
@@ -215,30 +225,9 @@ export class GalleryComponent implements OnInit {
     this.cargar();
   }
 
-  /**
-   * Pide los trabajos. Está separado de `ngOnInit` para que el botón de
-   * reintentar pueda volver a llamarlo sin recargar la página.
-   *
-   * Los tres estados (cargando / error / contenido) son excluyentes, y "no hay
-   * contenido" y "no se pudo leer" llevan mensajes distintos porque son
-   * situaciones distintas: una es un salón sin trabajos cargados, la otra es un
-   * problema para averiguarlo.
-   */
+  /** Pide los trabajos. Separado del arranque para que "Reintentar" lo repita. */
   cargar(): void {
-    this.cargando.set(true);
-    this.error.set(null);
-
-    this.appointmentService.getGaleria().subscribe({
-      next: (data) => {
-        this.galeria.set(data);
-        this.currentIndex.set(0);
-        this.cargando.set(false);
-      },
-      error: () => {
-        this.error.set(MENSAJES.errorAlCargar);
-        this.cargando.set(false);
-      },
-    });
+    this.carga.cargar();
   }
 
   panelTransform(index: number): string {

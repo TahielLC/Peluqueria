@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { Peluquero } from '../../models/appointment.model';
-import { MENSAJES } from '../estados';
+import { MENSAJES, CargaDeContenido } from '../estados';
 
 const SWIPE_THRESHOLD = 50;
 
@@ -131,9 +131,19 @@ export class StaffComponent implements OnInit {
   readonly peluqueros = signal<Peluquero[]>([]);
   readonly currentIndex = signal(0);
 
-  /** Arranca en `true`: antes de que llegue la respuesta no se sabe si hay contenido. */
-  readonly cargando = signal(true);
-  readonly error = signal<string | null>(null);
+  /** Las tres reglas de cargando / error / vacío viven una sola vez: `estados.ts`. */
+  private readonly carga = new CargaDeContenido<Peluquero[]>(
+    () => this.appointmentService.getPeluqueros(),
+    (datos) => {
+      this.peluqueros.set(datos);
+      // Contenido nuevo, carrusel al principio: si no, quedaría parado en un
+      // índice de la lista anterior que puede no existir.
+      this.currentIndex.set(0);
+    },
+  );
+
+  readonly cargando = this.carga.cargando;
+  readonly error = this.carga.error;
 
   readonly mensajes = MENSAJES;
 
@@ -153,30 +163,9 @@ export class StaffComponent implements OnInit {
     this.cargar();
   }
 
-  /**
-   * Pide los perfiles. Está separado de `ngOnInit` para que el botón de
-   * reintentar pueda volver a llamarlo sin recargar la página.
-   *
-   * Los tres estados (cargando / error / contenido) son excluyentes, y "no hay
-   * contenido" y "no se pudo leer" llevan mensajes distintos porque son
-   * situaciones distintas: una es un equipo sin cargar, la otra es un problema
-   * para averiguarlo.
-   */
+  /** Pide los perfiles. Separado del arranque para que "Reintentar" lo repita. */
   cargar(): void {
-    this.cargando.set(true);
-    this.error.set(null);
-
-    this.appointmentService.getPeluqueros().subscribe({
-      next: (data) => {
-        this.peluqueros.set(data);
-        this.currentIndex.set(0);
-        this.cargando.set(false);
-      },
-      error: () => {
-        this.error.set(MENSAJES.errorAlCargar);
-        this.cargando.set(false);
-      },
-    });
+    this.carga.cargar();
   }
 
   isActive(index: number): boolean {

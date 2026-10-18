@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { Servicio } from '../../models/appointment.model';
-import { MENSAJES } from '../estados';
+import { MENSAJES, CargaDeContenido } from '../estados';
 
 @Component({
   selector: 'app-servicios',
@@ -53,12 +53,16 @@ export class ServiciosComponent implements OnInit {
   readonly servicios = signal<Servicio[]>([]);
 
   /**
-   * Arranca en `true` a propósito. Los datos vienen por red, así que antes de
-   * que llegue la respuesta no se sabe si hay contenido o no: mostrar el estado
-   * vacío en ese momento afirmaría "no hay nada" cuando todavía no se preguntó.
+   * Las tres reglas de cargando / error / vacío viven una sola vez, en
+   * `estados.ts`, y son las mismas para las tres secciones del sitio.
    */
-  readonly cargando = signal(true);
-  readonly error = signal<string | null>(null);
+  private readonly carga = new CargaDeContenido<Servicio[]>(
+    () => this.appointmentService.getServicios(),
+    (datos) => this.servicios.set(datos),
+  );
+
+  readonly cargando = this.carga.cargando;
+  readonly error = this.carga.error;
 
   readonly mensajes = MENSAJES;
 
@@ -66,28 +70,9 @@ export class ServiciosComponent implements OnInit {
     this.cargar();
   }
 
-  /**
-   * Pide los servicios. Está separado de `ngOnInit` para que el botón de
-   * reintentar pueda volver a llamarlo sin recargar la página.
-   *
-   * Sobre los tres estados: "no hay contenido" y "no se pudo leer" son
-   * situaciones distintas y llevan mensajes distintos. Confundirlas haría que
-   * un problema de red se viera como un salón sin servicios cargados.
-   */
+  /** Pide los servicios. Separado del arranque para que "Reintentar" lo repita. */
   cargar(): void {
-    this.cargando.set(true);
-    this.error.set(null);
-
-    this.appointmentService.getServicios().subscribe({
-      next: (data) => {
-        this.servicios.set(data);
-        this.cargando.set(false);
-      },
-      error: () => {
-        this.error.set(MENSAJES.errorAlCargar);
-        this.cargando.set(false);
-      },
-    });
+    this.carga.cargar();
   }
 
   precio(valor: number): string {
