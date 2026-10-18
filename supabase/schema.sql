@@ -12,8 +12,27 @@
 --     no el secreto de la clave.
 --   - Lectura pública: cualquiera puede LEER el contenido activo (es un sitio
 --     público, esa es la idea).
---   - Escritura: sólo con sesión iniciada (la administradora).
+--   - Escritura: sólo la administradora. No "cualquier sesión iniciada": la
+--     tabla `public.administradores` dice QUIÉN es la administradora, y todas
+--     las políticas de escritura la consultan. Si algún día se habilita el
+--     registro público, o si se invita a alguien, esa cuenta nueva NO puede
+--     tocar el contenido.
+--   - Alta o baja de administradoras: se hace a mano desde el editor SQL.
+--     A propósito: es una decisión operativa, no algo que deba poder hacer
+--     nadie desde el navegador.
 --   - `service_role` NO se usa en ningún lado del frontend. Nunca.
+--
+-- POR QUÉ UNA TABLA Y NO UN `security definer` NI UN UUID SUELTO:
+--   Con el UUID hardcodeado en cada política, cambiar de administradora exige
+--   editar 7 políticas y es fácil dejar una vieja atrás. Con una función
+--   `security definer` quedaría más corto, pero sería una frontera de
+--   privilegios que no se puede probar antes de ejecutarla, y un error ahí
+--   (por ejemplo un `search_path` sin fijar) es una escalada de privilegios.
+--   La tabla es lo más aburrido de las tres: sin superficie de escalada, con
+--   un solo lugar donde está la verdad, y verificable a ojo.
+--   Lo que se resigna: cualquier cuenta autenticada puede LEER la lista de
+--   administradoras. No sirve para nada malo —`auth.uid()` viene firmado por
+--   Supabase y no se puede falsificar— pero queda dicho.
 -- ============================================================================
 
 
@@ -66,6 +85,13 @@ create table if not exists public.galeria (
   actualizado_en timestamptz not null default now()
 );
 
+-- Quién puede escribir. Una fila por administradora.
+-- No tiene columnas de contenido a propósito: es sólo la lista de identidades.
+create table if not exists public.administradores (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  creado_en  timestamptz not null default now()
+);
+
 
 -- ============================================================================
 -- 2. GRANTS EXPLÍCITOS
@@ -83,6 +109,11 @@ grant insert, update, delete
   on public.textos_sitio, public.servicios, public.peluqueros, public.galeria
   to authenticated;
 
+-- La lista de administradoras se LEE (las políticas de escritura la consultan)
+-- pero NO se escribe desde el navegador: no hay grant de insert/update/delete
+-- ni política que lo permita. Se administra desde el editor SQL.
+grant select on public.administradores to authenticated;
+
 grant usage, select on all sequences in schema public to authenticated;
 
 
@@ -90,10 +121,33 @@ grant usage, select on all sequences in schema public to authenticated;
 -- 3. ROW LEVEL SECURITY
 -- ============================================================================
 
-alter table public.textos_sitio enable row level security;
-alter table public.servicios   enable row level security;
-alter table public.peluqueros  enable row level security;
-alter table public.galeria     enable row level security;
+alter table public.textos_sitio     enable row level security;
+alter table public.servicios       enable row level security;
+alter table public.peluqueros      enable row level security;
+alter table public.galeria         enable row level security;
+alter table public.administradores enable row level security;
+
+-- --- administradores -------------------------------------------------------
+-- Sólo lectura: la necesitan las políticas de abajo. Sin insert/update/delete,
+-- nadie se hace administrador a sí mismo desde el navegador.
+drop policy if exists "lectura administradoras" on public.administradores;
+create policy "lectura administradoras"
+  on public.administradores for select
+  to authenticated
+  using (true);
+
+-- --- El predicado de escritura --------------------------------------------
+-- Todas las políticas de escritura repiten el mismo. Se escribe entero en cada
+-- una, sin función auxiliar, por el motivo del encabezado.
+--
+-- OJO, un detalle de PostgreSQL que no es obvio y que cambia el comportamiento:
+-- las políticas PERMISIVAS del MISMO comando se combinan con OR. Entonces
+-- `for all to authenticated` no significa sólo "escribir": su `using` también
+-- habilita LEER. Con el predicado de administradora la consecuencia es la que
+-- buscamos —la administradora ve también lo desactivado, que es justo lo que
+-- necesita para poder reactivarlo— y una cuenta autenticada que NO es
+-- administradora ve sólo lo activo, igual que el público. Si algún día se
+-- agrega una segunda cuenta, esto ya está resuelto.
 
 -- --- textos_sitio ---------------------------------------------------------
 -- No tiene `activo`: son claves fijas del sitio, siempre se leen.
@@ -106,7 +160,8 @@ drop policy if exists "admin administra textos" on public.textos_sitio;
 create policy "admin administra textos"
   on public.textos_sitio for all
   to authenticated
-  using (true) with check (true);
+  using (exists (select 1 from public.administradores where user_id = auth.uid()))
+  with check (exists (select 1 from public.administradores where user_id = auth.uid()));
 
 -- --- servicios ------------------------------------------------------------
 -- El público sólo ve lo activo; la administradora ve todo (si no, no podría
@@ -120,7 +175,8 @@ drop policy if exists "admin administra servicios" on public.servicios;
 create policy "admin administra servicios"
   on public.servicios for all
   to authenticated
-  using (true) with check (true);
+  using (exists (select 1 from public.administradores where user_id = auth.uid()))
+  with check (exists (select 1 from public.administradores where user_id = auth.uid()));
 
 -- --- peluqueros -----------------------------------------------------------
 drop policy if exists "lectura publica peluqueros activos" on public.peluqueros;
@@ -132,7 +188,8 @@ drop policy if exists "admin administra peluqueros" on public.peluqueros;
 create policy "admin administra peluqueros"
   on public.peluqueros for all
   to authenticated
-  using (true) with check (true);
+  using (exists (select 1 from public.administradores where user_id = auth.uid()))
+  with check (exists (select 1 from public.administradores where user_id = auth.uid()));
 
 -- --- galeria --------------------------------------------------------------
 drop policy if exists "lectura publica galeria activa" on public.galeria;
@@ -144,7 +201,8 @@ drop policy if exists "admin administra galeria" on public.galeria;
 create policy "admin administra galeria"
   on public.galeria for all
   to authenticated
-  using (true) with check (true);
+  using (exists (select 1 from public.administradores where user_id = auth.uid()))
+  with check (exists (select 1 from public.administradores where user_id = auth.uid()));
 
 
 -- ============================================================================
@@ -168,19 +226,32 @@ drop policy if exists "admin sube fotos" on storage.objects;
 create policy "admin sube fotos"
   on storage.objects for insert
   to authenticated
-  with check (bucket_id = 'fotos');
+  with check (
+    bucket_id = 'fotos'
+    and exists (select 1 from public.administradores where user_id = auth.uid())
+  );
 
 drop policy if exists "admin reemplaza fotos" on storage.objects;
 create policy "admin reemplaza fotos"
   on storage.objects for update
   to authenticated
-  using (bucket_id = 'fotos');
+  using (
+    bucket_id = 'fotos'
+    and exists (select 1 from public.administradores where user_id = auth.uid())
+  )
+  with check (
+    bucket_id = 'fotos'
+    and exists (select 1 from public.administradores where user_id = auth.uid())
+  );
 
 drop policy if exists "admin borra fotos" on storage.objects;
 create policy "admin borra fotos"
   on storage.objects for delete
   to authenticated
-  using (bucket_id = 'fotos');
+  using (
+    bucket_id = 'fotos'
+    and exists (select 1 from public.administradores where user_id = auth.uid())
+  );
 
 
 -- ============================================================================
@@ -255,12 +326,36 @@ select setval(pg_get_serial_sequence('public.galeria', 'id'),
 
 
 -- ============================================================================
--- 6. COMPROBACIÓN RÁPIDA
---    Después de ejecutar, esto tiene que devolver 10, 3, 3, 3.
+-- 6. ALTA DE LA ADMINISTRADORA  (PASO MANUAL, OBLIGATORIO)
+--    Sin esto RLS bloquea TODA escritura y el panel queda de sólo lectura.
+--    Reemplazá el correo por el de la cuenta que va a administrar el sitio
+--    (la que ya existe en Authentication → Users).
+-- ============================================================================
+
+insert into public.administradores (user_id)
+select id from auth.users where email = 'CAMBIAR-ESTE-CORREO@ejemplo.com'
+on conflict (user_id) do nothing;
+
+-- Si nadie quedó dado de alta, se corta acá con un error, A PROPÓSITO.
+-- El silencio sería peor: el sitio se vería perfecto, no se podría guardar
+-- nada, y el síntoma aparecería recién en el primer intento de editar.
+do $$
+begin
+  if not exists (select 1 from public.administradores) then
+    raise exception 'NO HAY NINGUNA ADMINISTRADORA DADA DE ALTA: reemplaza el correo del paso 6 por el de una cuenta real y vuelve a ejecutar el archivo.';
+  end if;
+end $$;
+
+
+-- ============================================================================
+-- 7. COMPROBACIÓN RÁPIDA
+--    Después de ejecutar, esto tiene que devolver 10, 3, 3, 3, 1.
+--    El último número es el de administradoras: si da 0, revisá el paso 6.
 -- ============================================================================
 
 select
-  (select count(*) from public.textos_sitio) as textos,
-  (select count(*) from public.servicios)   as servicios,
-  (select count(*) from public.peluqueros)  as peluqueros,
-  (select count(*) from public.galeria)     as galeria;
+  (select count(*) from public.textos_sitio)     as textos,
+  (select count(*) from public.servicios)        as servicios,
+  (select count(*) from public.peluqueros)       as peluqueros,
+  (select count(*) from public.galeria)          as galeria,
+  (select count(*) from public.administradores)  as administradoras;
