@@ -55,6 +55,24 @@ describe('AdminPanelComponent', () => {
       fixture,
       navegaciones,
       salidas: autenticacionFalsa.salidas,
+      /** Lo que la persona realmente ve. */
+      texto: () => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' '),
+      /**
+       * Los botones de pestaña, en el orden en que se ven.
+       * Se filtran por `aria-pressed` para no agarrar el botón de cerrar sesión.
+       */
+      pestanias: () =>
+        Array.from(
+          fixture.nativeElement.querySelectorAll('button[aria-pressed]'),
+        ) as HTMLButtonElement[],
+      /**
+       * El panel de la sección visible. Usa el `aria-label` que ya tiene por
+       * semántica, así que no hay que agregar marcas sólo para el test.
+       */
+      panelVisible: () =>
+        Array.from(
+          fixture.nativeElement.querySelectorAll('main section[aria-label]'),
+        ) as HTMLElement[],
     };
   }
 
@@ -90,5 +108,83 @@ describe('AdminPanelComponent', () => {
 
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Panel de administración');
+  });
+
+  describe('las 4 secciones', () => {
+    it('están todas a la vista, con su nombre en castellano', () => {
+      const { pestanias } = armar();
+
+      expect(pestanias().map((boton) => boton.textContent?.trim())).toEqual([
+        'Textos',
+        'Servicios',
+        'Equipo',
+        'Galería',
+      ]);
+    });
+
+    it('arranca en la primera y no mezcla contenido de las otras', () => {
+      const { panelVisible, texto } = armar();
+
+      // Que haya exactamente un panel visible es el punto: en una sola pantalla
+      // con pestañas, toda la información de las otras secciones no se muestra.
+      expect(panelVisible()).toHaveLength(1);
+      expect(panelVisible()[0].getAttribute('aria-label')).toBe('Textos del sitio');
+      expect(texto()).not.toContain('Las fotos de trabajos que se ven en la portada');
+    });
+
+    it('al elegir otra pestaña cambia lo que se muestra y no queda nada de la anterior', () => {
+      const { fixture, panelVisible, pestanias } = armar();
+
+      pestanias()[3].click();
+      fixture.detectChanges();
+
+      expect(panelVisible()).toHaveLength(1);
+      expect(panelVisible()[0].getAttribute('aria-label')).toBe('Galería de trabajos');
+      expect(fixture.nativeElement.textContent).not.toContain('Textos del sitio');
+    });
+
+    it('marca la elegida y desmarca las otras', () => {
+      const { fixture, pestanias } = armar();
+
+      expect(pestanias().map((boton) => boton.getAttribute('aria-pressed'))).toEqual([
+        'true',
+        'false',
+        'false',
+        'false',
+      ]);
+
+      pestanias()[1].click();
+      fixture.detectChanges();
+
+      expect(pestanias().map((boton) => boton.getAttribute('aria-pressed'))).toEqual([
+        'false',
+        'true',
+        'false',
+        'false',
+      ]);
+    });
+
+    it('cada sección explica qué se va a poder editar ahí', () => {
+      const { fixture, panelVisible, pestanias } = armar();
+
+      // La explicación no es decorativa: es para alguien que no sabe de apps y
+      // tiene que entender qué toca cada pestaña antes de animarse.
+      expect(fixture.nativeElement.textContent).toContain('El título y el subtítulo de la portada');
+
+      pestanias()[1].click();
+      fixture.detectChanges();
+
+      expect(panelVisible()[0].textContent).toContain('lo que dura y lo que sale');
+    });
+
+    it('el panel dice con qué cuenta se está editando aunque el correo no se pueda leer', () => {
+      const { fixture } = armar(null);
+      fixture.detectChanges();
+
+      // Sin correo, en vez de un hueco en blanco hay una marca de espera: el
+      // hueco parece un error.
+      expect(fixture.nativeElement.textContent).toContain('…');
+      expect(fixture.nativeElement.textContent).toContain('Panel de administración');
+    });
   });
 });
