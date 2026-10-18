@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { StaffComponent } from './staff.component';
 import { AppointmentService } from '../../services/appointment.service';
 import { Peluquero } from '../../models/appointment.model';
+import { ClaveDeTexto } from '../../models/salon.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
 import { MENSAJES } from '../estados';
 
 const PERSONA = (id: number, titulo?: string): Peluquero => ({
@@ -15,6 +17,26 @@ const PERSONA = (id: number, titulo?: string): Peluquero => ({
   fotoUrl: `https://example.test/${id}.jpg`,
 });
 
+/** Valores de prueba: no se parecen a los que la sección tiene en su plantilla. */
+const TITULO_DE_LA_BASE = 'Título de equipo que viene de la base';
+const BAJADA_DE_LA_BASE = 'Bajada de equipo que viene de la base';
+
+/**
+ * Doble de `TextosSitioService`.
+ *
+ * Se dobla el servicio, y no se usa el real, para que la prueba falle si el
+ * componente vuelve a escribir su título o su bajada en la plantilla: en ese
+ * caso la pantalla mostraría la frase vieja y no la de este doble.
+ */
+function textosFalsos(valores: Partial<Record<ClaveDeTexto, string>>) {
+  return {
+    cargar(): void {},
+    texto(clave: ClaveDeTexto): string {
+      return valores[clave] ?? '';
+    },
+  };
+}
+
 /**
  * Arma el componente con la respuesta que se le pase.
  *
@@ -25,7 +47,16 @@ const PERSONA = (id: number, titulo?: string): Peluquero => ({
 function armar(consultar: () => Observable<Peluquero[]>) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
-    providers: [{ provide: AppointmentService, useValue: { getPeluqueros: consultar } }],
+    providers: [
+      { provide: AppointmentService, useValue: { getPeluqueros: consultar } },
+      {
+        provide: TextosSitioService,
+        useValue: textosFalsos({
+          staff_titulo: TITULO_DE_LA_BASE,
+          staff_bajada: BAJADA_DE_LA_BASE,
+        }),
+      },
+    ],
   });
   const fixture = TestBed.createComponent(StaffComponent);
   fixture.detectChanges();
@@ -223,6 +254,19 @@ describe('StaffComponent', () => {
 
       expect(component.peluqueros()).toHaveLength(1);
       expect(texto()).not.toContain(MENSAJES.errorAlCargar);
+    });
+  });
+
+  describe('textos de la sección', () => {
+    it('muestra el título y la bajada que dice el servicio, no los escritos en la plantilla', () => {
+      const { texto } = armar(() => of([]));
+
+      expect(texto()).toContain(TITULO_DE_LA_BASE);
+      expect(texto()).toContain(BAJADA_DE_LA_BASE);
+
+      // Si la sección volviera a hardcodearlos, aparecerían estas frases.
+      expect(texto()).not.toContain('Nuestro Equipo');
+      expect(texto()).not.toContain('Profesionales apasionados por el cuidado de tu imagen.');
     });
   });
 });

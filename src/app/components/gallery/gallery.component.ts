@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { TrabajoGaleria } from '../../models/salon.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
 import { MENSAJES, CargaDeContenido } from '../estados';
 
 const PANEL_WIDTH = 340;
@@ -26,10 +27,10 @@ const DURATION = '900ms';
 
       <div class="relative max-w-6xl mx-auto px-4">
         <h2 class="text-3xl md:text-4xl font-bold text-center mb-3 text-white tracking-tight">
-          Galería de Trabajos
+          {{ textos.texto('galeria_titulo') }}
         </h2>
         <p class="text-gray-400 text-center mb-12">
-          Echale un vistazo a nuestros últimos cortes y estilos.
+          {{ textos.texto('galeria_bajada') }}
         </p>
 
         @if (cargando()) {
@@ -169,6 +170,9 @@ const DURATION = '900ms';
 })
 export class GalleryComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
+
+  /** Los textos del sitio: los pide el home una sola vez y las secciones leen. */
+  readonly textos = inject(TextosSitioService);
 
   readonly panelWidth = PANEL_WIDTH;
   readonly panelHeight = PANEL_HEIGHT;

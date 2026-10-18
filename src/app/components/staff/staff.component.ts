@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { Peluquero } from '../../models/appointment.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
 import { MENSAJES, CargaDeContenido } from '../estados';
 
 const SWIPE_THRESHOLD = 50;
@@ -11,8 +12,8 @@ const SWIPE_THRESHOLD = 50;
   template: `
     <section id="staff" class="bg-gray-50 px-4 py-16">
       <div class="mx-auto max-w-4xl text-center">
-        <h2 class="mb-3 text-3xl font-bold text-gray-800">Nuestro Equipo</h2>
-        <p class="mb-10 text-gray-600">Profesionales apasionados por el cuidado de tu imagen.</p>
+        <h2 class="mb-3 text-3xl font-bold text-gray-800">{{ textos.texto('staff_titulo') }}</h2>
+        <p class="mb-10 text-gray-600">{{ textos.texto('staff_bajada') }}</p>
 
         @if (cargando()) {
           <p class="py-16 text-gray-400" role="status">{{ mensajes.cargando }}</p>
@@ -127,6 +128,9 @@ const SWIPE_THRESHOLD = 50;
 })
 export class StaffComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
+
+  /** Los textos del sitio: los pide el home una sola vez y las secciones leen. */
+  readonly textos = inject(TextosSitioService);
 
   readonly peluqueros = signal<Peluquero[]>([]);
   readonly currentIndex = signal(0);

@@ -3,7 +3,8 @@ import { Observable, Subject, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { GalleryComponent } from './gallery.component';
 import { AppointmentService } from '../../services/appointment.service';
-import { TrabajoGaleria } from '../../models/salon.model';
+import { ClaveDeTexto, TrabajoGaleria } from '../../models/salon.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
 import { MENSAJES } from '../estados';
 
 const FOTO = (id: number): TrabajoGaleria => ({
@@ -12,6 +13,29 @@ const FOTO = (id: number): TrabajoGaleria => ({
   categoria: 'Corte',
   imagenUrl: `https://example.test/${id}.jpg`,
 });
+
+/** Valores de prueba: no se parecen a los que la sección tiene en su plantilla. */
+const TITULO_DE_LA_BASE = 'Título de galería que viene de la base';
+const BAJADA_DE_LA_BASE = 'Bajada de galería que viene de la base';
+
+/**
+ * Doble de `TextosSitioService`.
+ *
+ * Se dobla el servicio, y no se usa el real, para que la prueba falle si el
+ * componente vuelve a escribir su título o su bajada en la plantilla: en ese
+ * caso la pantalla mostraría la frase vieja y no la de este doble.
+ *
+ * La clave dice `galeria` y el archivo dice `gallery`: la diferencia es la que
+ * haría que la sección pidiera un texto que no existe.
+ */
+function textosFalsos(valores: Partial<Record<ClaveDeTexto, string>>) {
+  return {
+    cargar(): void {},
+    texto(clave: ClaveDeTexto): string {
+      return valores[clave] ?? '';
+    },
+  };
+}
 
 /**
  * Arma el componente con la respuesta que se le pase.
@@ -23,7 +47,16 @@ const FOTO = (id: number): TrabajoGaleria => ({
 function armar(consultar: () => Observable<TrabajoGaleria[]>) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
-    providers: [{ provide: AppointmentService, useValue: { getGaleria: consultar } }],
+    providers: [
+      { provide: AppointmentService, useValue: { getGaleria: consultar } },
+      {
+        provide: TextosSitioService,
+        useValue: textosFalsos({
+          galeria_titulo: TITULO_DE_LA_BASE,
+          galeria_bajada: BAJADA_DE_LA_BASE,
+        }),
+      },
+    ],
   });
   const fixture = TestBed.createComponent(GalleryComponent);
   fixture.detectChanges();
@@ -286,6 +319,19 @@ describe('GalleryComponent', () => {
 
       expect(component.galeria()).toHaveLength(1);
       expect(texto()).not.toContain(MENSAJES.errorAlCargar);
+    });
+  });
+
+  describe('textos de la sección', () => {
+    it('muestra el título y la bajada que dice el servicio, no los escritos en la plantilla', () => {
+      const { texto } = armar(() => of([]));
+
+      expect(texto()).toContain(TITULO_DE_LA_BASE);
+      expect(texto()).toContain(BAJADA_DE_LA_BASE);
+
+      // Si la sección volviera a hardcodearlos, aparecerían estas frases.
+      expect(texto()).not.toContain('Galería de Trabajos');
+      expect(texto()).not.toContain('Echale un vistazo a nuestros últimos cortes y estilos.');
     });
   });
 });

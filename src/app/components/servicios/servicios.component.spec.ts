@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ServiciosComponent } from './servicios.component';
 import { AppointmentService } from '../../services/appointment.service';
 import { Servicio } from '../../models/appointment.model';
+import { ClaveDeTexto } from '../../models/salon.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
 import { MENSAJES } from '../estados';
 
 const SERVICIO = (id: number, precio: number): Servicio => ({
@@ -13,6 +15,26 @@ const SERVICIO = (id: number, precio: number): Servicio => ({
   duracionMinutos: 30,
   precio,
 });
+
+/** Valores de prueba: no se parecen a los que la sección tiene en su plantilla. */
+const TITULO_DE_LA_BASE = 'Título de servicios que viene de la base';
+const BAJADA_DE_LA_BASE = 'Bajada de servicios que viene de la base';
+
+/**
+ * Doble de `TextosSitioService`.
+ *
+ * Se dobla el servicio, y no se usa el real, para que la prueba falle si el
+ * componente vuelve a escribir su título o su bajada en la plantilla: en ese
+ * caso la pantalla mostraría la frase vieja y no la de este doble.
+ */
+function textosFalsos(valores: Partial<Record<ClaveDeTexto, string>>) {
+  return {
+    cargar(): void {},
+    texto(clave: ClaveDeTexto): string {
+      return valores[clave] ?? '';
+    },
+  };
+}
 
 /**
  * Arma el componente con la respuesta que se le pase.
@@ -24,7 +46,16 @@ const SERVICIO = (id: number, precio: number): Servicio => ({
 function armar(consultar: () => Observable<Servicio[]>) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
-    providers: [{ provide: AppointmentService, useValue: { getServicios: consultar } }],
+    providers: [
+      { provide: AppointmentService, useValue: { getServicios: consultar } },
+      {
+        provide: TextosSitioService,
+        useValue: textosFalsos({
+          servicios_titulo: TITULO_DE_LA_BASE,
+          servicios_bajada: BAJADA_DE_LA_BASE,
+        }),
+      },
+    ],
   });
   const fixture = TestBed.createComponent(ServiciosComponent);
   fixture.detectChanges();
@@ -131,6 +162,19 @@ describe('ServiciosComponent', () => {
       expect(component.servicios()).toHaveLength(1);
       expect(texto()).toContain('Servicio 9');
       expect(texto()).not.toContain(MENSAJES.errorAlCargar);
+    });
+  });
+
+  describe('textos de la sección', () => {
+    it('muestra el título y la bajada que dice el servicio, no los escritos en la plantilla', () => {
+      const { texto } = armar(() => of([]));
+
+      expect(texto()).toContain(TITULO_DE_LA_BASE);
+      expect(texto()).toContain(BAJADA_DE_LA_BASE);
+
+      // Si la sección volviera a hardcodearlos, aparecerían estas frases.
+      expect(texto()).not.toContain('Nuestros Servicios');
+      expect(texto()).not.toContain('Precios claros, sin sorpresas. Elegí el tuyo.');
     });
   });
 });

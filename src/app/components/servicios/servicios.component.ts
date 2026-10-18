@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { Servicio } from '../../models/appointment.model';
+import { TextosSitioService } from '../../services/textos-sitio.service';
 import { MENSAJES, CargaDeContenido } from '../estados';
 
 @Component({
@@ -9,8 +10,8 @@ import { MENSAJES, CargaDeContenido } from '../estados';
   template: `
     <section id="servicios" class="py-12 bg-gray-50 px-4">
       <div class="max-w-6xl mx-auto text-center">
-        <h2 class="text-3xl font-bold mb-4 text-gray-800">Nuestros Servicios</h2>
-        <p class="text-gray-600 mb-10">Precios claros, sin sorpresas. Elegí el tuyo.</p>
+        <h2 class="text-3xl font-bold mb-4 text-gray-800">{{ textos.texto('servicios_titulo') }}</h2>
+        <p class="text-gray-600 mb-10">{{ textos.texto('servicios_bajada') }}</p>
 
         @if (cargando()) {
           <p class="text-gray-400 py-12" role="status">{{ mensajes.cargando }}</p>
@@ -49,6 +50,9 @@ import { MENSAJES, CargaDeContenido } from '../estados';
 })
 export class ServiciosComponent implements OnInit {
   private appointmentService = inject(AppointmentService);
+
+  /** Los textos del sitio: los pide el home una sola vez y las secciones leen. */
+  readonly textos = inject(TextosSitioService);
 
   readonly servicios = signal<Servicio[]>([]);
 
