@@ -50,7 +50,11 @@ export class AuthService {
    */
   async haySesion(): Promise<boolean> {
     const { data } = await this.supabase.auth.getSession();
-    return data.session !== null;
+    // `!= null` y no `!== null` a propósito: si la respuesta llegara sin el
+    // campo `session`, `data.session !== null` daría **true** y dejaría pasar a
+    // alguien sin sesión. En un chequeo de acceso el error tiene que caer del
+    // lado cerrado (lo encontró la verificación independiente de T5).
+    return data.session != null;
   }
 
   async correoDeLaSesion(): Promise<string | null> {

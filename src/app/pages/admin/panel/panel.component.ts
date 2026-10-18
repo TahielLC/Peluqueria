@@ -53,7 +53,18 @@ export class AdminPanelComponent implements OnInit {
     await this.router.navigateByUrl('/admin/login');
   }
 
-  private async cargarCorreo(): Promise<void> {
-    this.correo.set(await this.autenticacion.correoDeLaSesion());
+  /**
+   * Público para poder esperarlo desde los tests, que es donde se prueba que no
+   * deja una promesa rechazada suelta.
+   */
+  async cargarCorreo(): Promise<void> {
+    try {
+      this.correo.set(await this.autenticacion.correoDeLaSesion());
+    } catch {
+      // No poder leer el correo no justifica romper una pantalla que ya está
+      // autorizada: se muestra el panel sin ese dato. El caso "no hay sesión"
+      // no llega hasta acá, lo corta el guard.
+      this.correo.set(null);
+    }
   }
 }

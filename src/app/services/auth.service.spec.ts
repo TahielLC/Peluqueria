@@ -19,6 +19,8 @@ interface SesionFalsa {
 function crearSupabaseFalso(opciones: {
   errorAlEntrar?: { message: string } | null;
   sesion?: SesionFalsa | null;
+  /** Respuesta a la que le falta el campo `session`, para probar el caso mal formado. */
+  sesionAusente?: boolean;
 }) {
   const intentos: Array<{ email: string; password: string }> = [];
   let salidasDeSesion = 0;
@@ -30,7 +32,7 @@ function crearSupabaseFalso(opciones: {
         return { error: opciones.errorAlEntrar ?? null };
       },
       async getSession() {
-        return { data: { session: opciones.sesion ?? null } };
+        return { data: opciones.sesionAusente ? {} : { session: opciones.sesion ?? null } };
       },
       async signOut() {
         salidasDeSesion += 1;
@@ -113,6 +115,13 @@ describe('AuthService', () => {
     it('es false cuando no hay sesión', async () => {
       const { service } = armar({ sesion: null });
 
+      await expect(service.haySesion()).resolves.toBe(false);
+    });
+
+    it('si la respuesta viene sin el campo session, NO cuenta como sesión', async () => {
+      const { service } = armar({ sesionAusente: true });
+
+      // Acá fallar abierto sería peligroso: un dato mal formado no es una sesión.
       await expect(service.haySesion()).resolves.toBe(false);
     });
   });

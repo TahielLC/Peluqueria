@@ -163,6 +163,23 @@ describe('LoginComponent', () => {
     await enCurso;
   });
 
+  it('si el ingreso revienta, destraba la pantalla en vez de girar para siempre', async () => {
+    const { component, fixture, texto } = armar(async () => {
+      throw new Error('se cayó de par en par');
+    });
+    component.correo.set('admin@salon.test');
+    component.contrasena.set('secreta');
+
+    await component.entrar();
+    fixture.detectChanges();
+
+    // Un "Entrando…" eterno con el botón deshabilitado es un callejón sin
+    // salida para alguien que no sabe de apps: tiene que poder volver a intentar.
+    expect(component.cargando()).toBe(false);
+    expect(texto()).not.toContain('Entrando…');
+    expect(texto()).toContain('No pudimos iniciar sesión');
+  });
+
   it('borra la contraseña del formulario después de entrar', async () => {
     const { component } = armar();
     component.correo.set('admin@salon.test');

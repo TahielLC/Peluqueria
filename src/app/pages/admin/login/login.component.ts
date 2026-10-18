@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService, MotivoDeFallo } from '../../../services/auth.service';
+import { AuthService, MotivoDeFallo, ResultadoLogin } from '../../../services/auth.service';
 
 /** Textos de la pantalla de ingreso. */
 const MENSAJES = {
@@ -120,10 +120,20 @@ export class LoginComponent {
     this.cargando.set(true);
     this.error.set(null);
 
-    const resultado = await this.autenticacion.iniciarSesion({
-      correo: this.correo().trim(),
-      contrasena: this.contrasena(),
-    });
+    let resultado: ResultadoLogin;
+    try {
+      resultado = await this.autenticacion.iniciarSesion({
+        correo: this.correo().trim(),
+        contrasena: this.contrasena(),
+      });
+    } catch {
+      // Una excepción antes de llegar a Supabase no puede dejar la pantalla
+      // girando para siempre con el botón deshabilitado: para alguien que no
+      // sabe de apps, eso es un callejón sin salida del que no sabe salir.
+      this.cargando.set(false);
+      this.error.set(FALLOS.desconocido);
+      return;
+    }
 
     this.cargando.set(false);
 

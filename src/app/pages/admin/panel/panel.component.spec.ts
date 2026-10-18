@@ -7,12 +7,15 @@ import { AuthService } from '../../../services/auth.service';
 /** Deja correr las promesas pendientes antes de mirar la pantalla. */
 const esperarPromesas = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-function crearAutenticacionFalsa(correo: string | null) {
+function crearAutenticacionFalsa(correo: string | null, fallaAlLeerCorreo = false) {
   let salidas = 0;
 
   return {
     service: {
       async correoDeLaSesion() {
+        if (fallaAlLeerCorreo) {
+          throw new Error('no se pudo leer la sesión');
+        }
         return correo;
       },
       async cerrarSesion() {
@@ -24,8 +27,8 @@ function crearAutenticacionFalsa(correo: string | null) {
 }
 
 describe('AdminPanelComponent', () => {
-  function armar(correo: string | null = 'admin@salon.test') {
-    const autenticacionFalsa = crearAutenticacionFalsa(correo);
+  function armar(correo: string | null = 'admin@salon.test', fallaAlLeerCorreo = false) {
+    const autenticacionFalsa = crearAutenticacionFalsa(correo, fallaAlLeerCorreo);
     const navegaciones: string[] = [];
 
     TestBed.resetTestingModule();
@@ -75,5 +78,17 @@ describe('AdminPanelComponent', () => {
 
     expect(salidas()).toBe(1);
     expect(navegaciones).toEqual(['/admin/login']);
+  });
+
+  it('si leer el correo falla, el panel igual se muestra y no queda una promesa suelta', async () => {
+    const { component, fixture } = armar('admin@salon.test', true);
+
+    // Un dato decorativo no justifica romper una pantalla que ya está autorizada,
+    // ni dejar una promesa rechazada sin dueño.
+    await expect(component.cargarCorreo()).resolves.toBeUndefined();
+    expect(component.correo()).toBeNull();
+
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Panel de administración');
   });
 });
