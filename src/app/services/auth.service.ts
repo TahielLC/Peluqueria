@@ -9,17 +9,6 @@ export type MotivoDeFallo = 'credenciales' | 'correo_sin_confirmar' | 'desconoci
 
 export type ResultadoLogin = { ok: true } | { ok: false; motivo: MotivoDeFallo };
 
-/**
- * Por qué no se pudo cerrar la sesión.
- *
- * Hace falta distinguir un cierre fallido de uno exitoso, y "falló" solo no
- * alcanza: ver `salir` en el panel, que tiene que separar **tres** desenlaces
- * distintos con este dato.
- */
-export type MotivoDeCierre = 'sin_conexion' | 'desconocido';
-
-export type ResultadoCierre = { ok: true } | { ok: false; motivo: MotivoDeCierre };
-
 export interface Credenciales {
   correo: string;
   contrasena: string;
@@ -85,20 +74,23 @@ export class AuthService {
    *      con un `await initializePromise`, así que si el cliente no llegó a
    *      inicializar, la promesa **rechaza**.
    *
-   * Devuelve un resultado en vez de `void` porque el camino de falla no es uno
-   * solo, y quien llama necesita distinguirlos.
+   * Devuelve `true` sólo si la sesión se cerró de verdad.
+   *
+   * **Y devuelve un booleano y no el motivo del fallo, a propósito.** Hasta la
+   * revisión esto devolvía un resultado clasificado (`sin_conexion` /
+   * `desconocido`)… que no miraba nadie: el panel mostraba la misma frase para
+   * cualquier causa. Un dato que nadie consume es peor que no tenerlo, porque
+   * parece información y encima se pudre. Lo que sí cambia la conducta es otra
+   * cosa, y no la decide este método: si la sesión **local** sobrevivió. Eso lo
+   * pregunta `AdminPanelComponent.salir`, que es donde está la decisión.
    */
-  async cerrarSesion(): Promise<ResultadoCierre> {
+  async cerrarSesion(): Promise<boolean> {
     try {
       const { error } = await this.supabase.auth.signOut();
 
-      if (!error) {
-        return { ok: true };
-      }
-
-      return { ok: false, motivo: this.clasificarCierre(error.message) };
+      return !error;
     } catch {
-      return { ok: false, motivo: 'desconocido' };
+      return false;
     }
   }
 
@@ -114,21 +106,5 @@ export class AuthService {
     }
 
     return 'desconocido';
-  }
-
-  /**
-   * Traduce el mensaje del fallo de cierre.
-   *
-   * Acá sólo interesa separar "parece que no hay red" de todo lo demás: a quien
-   * usa el panel no le sirve saber si fue un 500 o un timeout, y el mensaje
-   * técnico no sale del servicio. El texto clasificado sólo cambia la redacción
-   * del aviso, nunca si se navega o no.
-   */
-  private clasificarCierre(mensaje: string): MotivoDeCierre {
-    const texto = mensaje.toLowerCase();
-
-    const senalesDeRed = ['fetch', 'network', 'timeout', 'load failed', 'connection'];
-
-    return senalesDeRed.some((senal) => texto.includes(senal)) ? 'sin_conexion' : 'desconocido';
   }
 }

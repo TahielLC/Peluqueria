@@ -159,44 +159,30 @@ describe('AuthService', () => {
   });
 
   describe('cerrarSesion', () => {
-    it('le pide a Supabase que cierre la sesión y reporta ok', async () => {
+    it('le pide a Supabase que cierre la sesión y devuelve que sí', async () => {
       const { service, salidas } = armar();
 
-      await expect(service.cerrarSesion()).resolves.toEqual({ ok: true });
+      await expect(service.cerrarSesion()).resolves.toBe(true);
       expect(salidas()).toBe(1);
     });
 
-    it('si falla la red NO lanza: devuelve el motivo "sin_conexion"', async () => {
+    it('si falla la red NO lanza: devuelve que NO se cerró', async () => {
       const { service } = armar({ errorAlCerrar: { message: 'TypeError: Failed to fetch' } });
 
       // Este test es el que importa: en Supabase el fallo de red llega por el
       // valor devuelto, no por una excepción. Si `cerrarSesion` sólo tuviera un
-      // `try/catch` alrededor, acá devolvería `ok` y la pantalla diría que la
+      // `try/catch` alrededor, acá devolvería `true` y la pantalla diría que la
       // sesión se cerró cuando no se cerró.
-      await expect(service.cerrarSesion()).resolves.toEqual({
-        ok: false,
-        motivo: 'sin_conexion',
-      });
+      await expect(service.cerrarSesion()).resolves.toBe(false);
     });
 
-    it('un error que no es de red cae en "desconocido" y no filtra el mensaje crudo', async () => {
-      const { service } = armar({ errorAlCerrar: { message: 'invalid JWT: signature mismatch' } });
-
-      const resultado = await service.cerrarSesion();
-
-      expect(resultado).toEqual({ ok: false, motivo: 'desconocido' });
-      expect(JSON.stringify(resultado)).not.toContain('signature');
-    });
-
-    it('si signOut RECHAZA, tampoco se propaga: devuelve un resultado', async () => {
+    it('si signOut RECHAZA, tampoco se propaga: devuelve que NO se cerró', async () => {
       const { service } = armar({ rechazaAlCerrar: true });
 
-      // Camino distinto al del fallo de red: acá la promesa sí rechaza. Si no
-      // estuviera el `try/catch`, esto sería una promesa rechazada sin dueño.
-      await expect(service.cerrarSesion()).resolves.toEqual({
-        ok: false,
-        motivo: 'desconocido',
-      });
+      // Camino distinto al del fallo de red: acá la promesa sí rechaza, porque
+      // `signOut()` arranca con `await initializePromise`. Sin el `try/catch`
+      // esto quedaría como una promesa rechazada sin dueño.
+      await expect(service.cerrarSesion()).resolves.toBe(false);
     });
   });
 });

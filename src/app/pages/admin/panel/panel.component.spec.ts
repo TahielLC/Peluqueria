@@ -7,20 +7,17 @@ import { AuthService } from '../../../services/auth.service';
 /** Deja correr las promesas pendientes antes de mirar la pantalla. */
 const esperarPromesas = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-/** Lo que devuelve un intento de cerrar sesión. */
-type ResultadoCierreFalso = { ok: true } | { ok: false; motivo: string };
-
 interface OpcionesDelPanel {
   correo?: string | null;
   fallaAlLeerCorreo?: boolean;
   /**
-   * Lo que devuelve `cerrarSesion()`.
+   * Si `cerrarSesion()` devuelve que NO se pudo cerrar.
    *
-   * Es un objeto y no un valor fijo a propósito: el mismo objeto se devuelve
-   * desde `armar()`, así que un test puede cambiarlo a mitad de camino y probar
-   * que **reintentar funciona**.
+   * Va dentro de este objeto y no como valor fijo a propósito: la misma
+   * referencia se devuelve desde `armar()`, así que un test puede darla vuelta a
+   * mitad de camino y probar que **reintentar funciona**.
    */
-  cierre?: ResultadoCierreFalso;
+  fallaElCierre?: boolean;
   /** Si, después de un cierre fallido, la sesión local sigue viva. */
   quedaSesion?: boolean;
   /** Si preguntar por la sesión falla, para el caso "ni se pudo averiguar". */
@@ -40,7 +37,7 @@ function crearAutenticacionFalsa(opciones: OpcionesDelPanel) {
       },
       async cerrarSesion() {
         salidas += 1;
-        return opciones.cierre ?? { ok: true };
+        return !opciones.fallaElCierre;
       },
       async haySesion() {
         if (opciones.fallaAlConsultarSesion) {
@@ -132,7 +129,7 @@ describe('AdminPanelComponent', () => {
 
   it('si el cierre falla y la sesión sigue viva, NO navega y lo dice en pantalla', async () => {
     const { component, fixture, navegaciones } = armar({
-      cierre: { ok: false, motivo: 'sin_conexion' },
+      fallaElCierre: true,
       quedaSesion: true,
     });
 
@@ -145,11 +142,16 @@ describe('AdminPanelComponent', () => {
 
     const alerta = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement | null;
     expect(alerta?.textContent).toContain('No se pudo cerrar la sesión');
+
+    // El aviso se muestra SÓLO en el desenlace donde se comprobó que la sesión
+    // local sigue viva, así que puede —y debe— afirmarlo. Antes decía una causa
+    // probable ("revisá tu conexión") que nadie había verificado.
+    expect(alerta?.textContent).toContain('sigue abierta');
   });
 
   it('si el cierre falla pero la sesión local ya no está, igual va al login', async () => {
     const { component, fixture, navegaciones } = armar({
-      cierre: { ok: false, motivo: 'sin_conexion' },
+      fallaElCierre: true,
       quedaSesion: false,
     });
 
@@ -165,7 +167,7 @@ describe('AdminPanelComponent', () => {
 
   it('si ni siquiera se puede averiguar si hay sesión, NO navega: el error cae del lado cerrado', async () => {
     const { component, fixture, navegaciones } = armar({
-      cierre: { ok: false, motivo: 'sin_conexion' },
+      fallaElCierre: true,
       fallaAlConsultarSesion: true,
     });
 
@@ -181,7 +183,7 @@ describe('AdminPanelComponent', () => {
 
   it('después de un fallo, reintentar funciona y el aviso se va', async () => {
     const { component, fixture, opciones, navegaciones } = armar({
-      cierre: { ok: false, motivo: 'sin_conexion' },
+      fallaElCierre: true,
       quedaSesion: true,
     });
 
@@ -191,7 +193,7 @@ describe('AdminPanelComponent', () => {
 
     // El botón sigue ahí y sigue sirviendo. Si el aviso fuera un cartel muerto,
     // la persona quedaría encerrada en el panel sin forma de salir.
-    opciones.cierre = { ok: true };
+    opciones.fallaElCierre = false;
     opciones.quedaSesion = false;
 
     await component.salir();

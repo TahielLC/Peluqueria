@@ -8,7 +8,7 @@ const MENSAJES = {
   cerrarSesion: 'Cerrar sesión',
   secciones: 'Secciones del panel',
   proximamente: 'Acá vas a poder editar esta parte del sitio. Llega en la próxima entrega.',
-  salidaFallo: 'No se pudo cerrar la sesión. Revisá tu conexión y probá de nuevo.',
+  salidaFallo: 'No se pudo cerrar la sesión: sigue abierta. Revisá tu conexión y probá de nuevo.',
 } as const;
 
 /**
@@ -214,11 +214,11 @@ export class AdminPanelComponent implements OnInit {
    */
   private async intentarSalir(): Promise<boolean> {
     try {
-      const resultado = await this.autenticacion.cerrarSesion();
+      const cerroBien = await this.autenticacion.cerrarSesion();
 
       // Si cerró bien no hay nada que preguntar; si falló, hay que ver si la
       // sesión local sobrevivió.
-      return resultado.ok || !(await this.autenticacion.haySesion());
+      return cerroBien || !(await this.autenticacion.haySesion());
     } catch {
       return false;
     }
