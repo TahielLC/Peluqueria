@@ -8,7 +8,11 @@ const MENSAJES = {
   cerrarSesion: 'Cerrar sesión',
   secciones: 'Secciones del panel',
   proximamente: 'Acá vas a poder editar esta parte del sitio. Llega en la próxima entrega.',
-  salidaFallo: 'No se pudo cerrar la sesión: sigue abierta. Revisá tu conexión y probá de nuevo.',
+  // Un solo aviso para los dos fallos, y por eso está redactado como posibilidad
+  // y no como hecho: hay una rama en la que no se pudo averiguar si la sesión
+  // quedó abierta, y ahí afirmarlo sería mentir. Ver `intentarSalir`.
+  salidaFallo:
+    'No se pudo cerrar la sesión: puede que siga abierta. Revisá tu conexión y probá de nuevo.',
 } as const;
 
 /**
@@ -171,13 +175,7 @@ export class AdminPanelComponent implements OnInit {
       : `${base} border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700`;
   }
 
-  /**
-   * Cerrar sesión, con el desenlace que corresponda.
-   *
-   * Antes esto era un `await cerrarSesion()` y navegar, sin mirar nada: si la
-   * salida fallaba, igual llevaba al login. Ahora la decisión está en
-   * `intentarSalir`, y acá sólo quedan las dos consecuencias posibles.
-   */
+  /** Cierra la sesión, según lo que devuelva `intentarSalir`. */
   async salir(): Promise<void> {
     // Se limpia primero: si es un reintento, el aviso viejo no tiene que quedar
     // colgado mientras se espera la respuesta.
@@ -211,6 +209,12 @@ export class AdminPanelComponent implements OnInit {
    * Los casos 2 y 3 se distinguen preguntando, no adivinando. Y si ni siquiera
    * se puede averiguar, se asume el 3: afirmar que la sesión se cerró cuando no
    * se sabe es la única respuesta que no se puede dar.
+   *
+   * **Ese tercer camino es el que le da la redacción al aviso.** El mismo texto
+   * cubre los dos fallos, y el caso «ni se pudo averiguar» también lo muestra:
+   * por eso dice que la sesión *puede* seguir abierta y no que sigue abierta.
+   * Afirmarlo ahí sería el mismo error que la revisión nativa nos marcó como
+   * CRITICAL: un cartel que asegura un hecho que nadie comprobó.
    */
   private async intentarSalir(): Promise<boolean> {
     try {

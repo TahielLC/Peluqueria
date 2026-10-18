@@ -142,11 +142,6 @@ describe('AdminPanelComponent', () => {
 
     const alerta = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement | null;
     expect(alerta?.textContent).toContain('No se pudo cerrar la sesión');
-
-    // El aviso se muestra SÓLO en el desenlace donde se comprobó que la sesión
-    // local sigue viva, así que puede —y debe— afirmarlo. Antes decía una causa
-    // probable ("revisá tu conexión") que nadie había verificado.
-    expect(alerta?.textContent).toContain('sigue abierta');
   });
 
   it('si el cierre falla pero la sesión local ya no está, igual va al login', async () => {
@@ -178,7 +173,13 @@ describe('AdminPanelComponent', () => {
     // que no se puede dar. Mismo criterio que el guard, que ante la duda manda
     // al login: acá la duda no puede dejar a la persona adentro creyendo que salió.
     expect(navegaciones).toEqual([]);
-    expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+
+    // Y el aviso no puede decir que la sesión "sigue abierta": en esta rama
+    // justamente no se pudo averiguar. Dice que *puede* que siga, que es lo único
+    // que se sabe. Fue el hallazgo CRITICAL de la revisión nativa.
+    const alerta = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement | null;
+    expect(alerta).not.toBeNull();
+    expect(alerta?.textContent).toContain('puede que siga abierta');
   });
 
   it('después de un fallo, reintentar funciona y el aviso se va', async () => {
