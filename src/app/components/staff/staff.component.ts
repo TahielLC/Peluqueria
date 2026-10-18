@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { Peluquero } from '../../models/appointment.model';
+import { MENSAJES } from '../estados';
 
 const SWIPE_THRESHOLD = 50;
 
@@ -13,7 +14,20 @@ const SWIPE_THRESHOLD = 50;
         <h2 class="mb-3 text-3xl font-bold text-gray-800">Nuestro Equipo</h2>
         <p class="mb-10 text-gray-600">Profesionales apasionados por el cuidado de tu imagen.</p>
 
-        @if (total() === 0) {
+        @if (cargando()) {
+          <p class="py-16 text-gray-400" role="status">{{ mensajes.cargando }}</p>
+        } @else if (error()) {
+          <div class="py-16">
+            <p class="text-gray-600 mb-6">{{ error() }}</p>
+            <button
+              type="button"
+              (click)="cargar()"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+            >
+              {{ mensajes.reintentar }}
+            </button>
+          </div>
+        } @else if (total() === 0) {
           <p class="py-16 text-gray-400">Todavía no hay profesionales cargados.</p>
         } @else {
           <div
@@ -117,6 +131,12 @@ export class StaffComponent implements OnInit {
   readonly peluqueros = signal<Peluquero[]>([]);
   readonly currentIndex = signal(0);
 
+  /** Arranca en `true`: antes de que llegue la respuesta no se sabe si hay contenido. */
+  readonly cargando = signal(true);
+  readonly error = signal<string | null>(null);
+
+  readonly mensajes = MENSAJES;
+
   readonly total = computed(() => this.peluqueros().length);
   readonly hasMultiple = computed(() => this.total() > 1);
 
@@ -130,9 +150,32 @@ export class StaffComponent implements OnInit {
   private touchStartX = 0;
 
   ngOnInit(): void {
-    this.appointmentService.getPeluqueros().subscribe((data) => {
-      this.peluqueros.set(data);
-      this.currentIndex.set(0);
+    this.cargar();
+  }
+
+  /**
+   * Pide los perfiles. Está separado de `ngOnInit` para que el botón de
+   * reintentar pueda volver a llamarlo sin recargar la página.
+   *
+   * Los tres estados (cargando / error / contenido) son excluyentes, y "no hay
+   * contenido" y "no se pudo leer" llevan mensajes distintos porque son
+   * situaciones distintas: una es un equipo sin cargar, la otra es un problema
+   * para averiguarlo.
+   */
+  cargar(): void {
+    this.cargando.set(true);
+    this.error.set(null);
+
+    this.appointmentService.getPeluqueros().subscribe({
+      next: (data) => {
+        this.peluqueros.set(data);
+        this.currentIndex.set(0);
+        this.cargando.set(false);
+      },
+      error: () => {
+        this.error.set(MENSAJES.errorAlCargar);
+        this.cargando.set(false);
+      },
     });
   }
 

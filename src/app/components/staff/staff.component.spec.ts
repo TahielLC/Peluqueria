@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { StaffComponent } from './staff.component';
 import { AppointmentService } from '../../services/appointment.service';
 import { Peluquero } from '../../models/appointment.model';
+import { MENSAJES } from '../estados';
 
 const PERSONA = (id: number, titulo?: string): Peluquero => ({
   id,
@@ -14,15 +15,31 @@ const PERSONA = (id: number, titulo?: string): Peluquero => ({
   fotoUrl: `https://example.test/${id}.jpg`,
 });
 
-function setup(cantidad: number): StaffComponent {
-  const items = Array.from({ length: cantidad }, (_, i) => PERSONA(i + 1));
+/**
+ * Arma el componente con la respuesta que se le pase.
+ *
+ * Recibe una función y no un Observable porque el botón de reintentar hace una
+ * segunda consulta: así el test puede hacer que falle la primera y funcione la
+ * segunda. `setup` es el atajo para el caso común de una cantidad fija de gente.
+ */
+function armar(consultar: () => Observable<Peluquero[]>) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
-    providers: [{ provide: AppointmentService, useValue: { getPeluqueros: () => of(items) } }],
+    providers: [{ provide: AppointmentService, useValue: { getPeluqueros: consultar } }],
   });
   const fixture = TestBed.createComponent(StaffComponent);
   fixture.detectChanges();
-  return fixture.componentInstance;
+  return {
+    component: fixture.componentInstance,
+    fixture,
+    /** Lo que el usuario realmente ve en pantalla. */
+    texto: () => fixture.nativeElement.textContent as string,
+  };
+}
+
+function setup(cantidad: number): StaffComponent {
+  const items = Array.from({ length: cantidad }, (_, i) => PERSONA(i + 1));
+  return armar(() => of(items)).component;
 }
 
 const touch = (clientX: number) => ({ changedTouches: [{ clientX }] }) as unknown as TouchEvent;
@@ -159,6 +176,53 @@ describe('StaffComponent', () => {
       component.onTouchEnd(touch(151));
 
       expect(component.currentIndex()).toBe(0);
+    });
+  });
+
+  describe('estados de carga, error y contenido vacío', () => {
+    it('mientras la respuesta está en camino avisa que está cargando, no que no hay nada', () => {
+      const enCamino = new Subject<Peluquero[]>();
+      const { fixture, texto } = armar(() => enCamino);
+
+      expect(texto()).toContain(MENSAJES.cargando);
+      expect(texto()).not.toContain('Todavía no hay profesionales cargados');
+
+      enCamino.next([PERSONA(1)]);
+      enCamino.complete();
+      fixture.detectChanges();
+
+      expect(texto()).not.toContain(MENSAJES.cargando);
+      expect(texto()).not.toContain('Todavía no hay profesionales cargados');
+    });
+
+    it('si la lectura falla muestra el error y NO el estado vacío', () => {
+      const { texto } = armar(() => throwError(() => new Error('sin red')));
+
+      expect(texto()).toContain(MENSAJES.errorAlCargar);
+      expect(texto()).not.toContain('Todavía no hay profesionales cargados');
+    });
+
+    it('un equipo vacío de verdad sigue mostrando el estado vacío', () => {
+      const { texto } = armar(() => of([]));
+
+      expect(texto()).toContain('Todavía no hay profesionales cargados');
+      expect(texto()).not.toContain(MENSAJES.errorAlCargar);
+      expect(texto()).not.toContain(MENSAJES.cargando);
+    });
+
+    it('el botón de reintentar vuelve a pedir el contenido y esta vez lo muestra', () => {
+      let respuesta: Observable<Peluquero[]> = throwError(() => new Error('sin red'));
+      const { component, fixture, texto } = armar(() => respuesta);
+
+      expect(texto()).toContain(MENSAJES.errorAlCargar);
+
+      respuesta = of([PERSONA(9)]);
+      const boton = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+      boton.click();
+      fixture.detectChanges();
+
+      expect(component.peluqueros()).toHaveLength(1);
+      expect(texto()).not.toContain(MENSAJES.errorAlCargar);
     });
   });
 });

@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { AppointmentService } from '../../services/appointment.service';
 import { TrabajoGaleria } from '../../models/salon.model';
+import { MENSAJES } from '../estados';
 
 const PANEL_WIDTH = 340;
 const PANEL_HEIGHT = 430;
@@ -31,7 +32,20 @@ const DURATION = '900ms';
           Echale un vistazo a nuestros últimos cortes y estilos.
         </p>
 
-        @if (total() === 0) {
+        @if (cargando()) {
+          <p class="text-center text-gray-400 py-24" role="status">{{ mensajes.cargando }}</p>
+        } @else if (error()) {
+          <div class="py-24 text-center">
+            <p class="text-gray-400 mb-6">{{ error() }}</p>
+            <button
+              type="button"
+              (click)="cargar()"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+            >
+              {{ mensajes.reintentar }}
+            </button>
+          </div>
+        } @else if (total() === 0) {
           <p class="text-center text-gray-600 py-24">Todavía no hay trabajos para mostrar.</p>
         } @else {
           <div
@@ -165,6 +179,12 @@ export class GalleryComponent implements OnInit {
   readonly galeria = signal<TrabajoGaleria[]>([]);
   readonly currentIndex = signal(0);
 
+  /** Arranca en `true`: antes de que llegue la respuesta no se sabe si hay contenido. */
+  readonly cargando = signal(true);
+  readonly error = signal<string | null>(null);
+
+  readonly mensajes = MENSAJES;
+
   readonly total = computed(() => this.galeria().length);
   readonly hasMultiple = computed(() => this.total() > 1);
 
@@ -192,9 +212,32 @@ export class GalleryComponent implements OnInit {
   private touchStartX = 0;
 
   ngOnInit(): void {
-    this.appointmentService.getGaleria().subscribe((data) => {
-      this.galeria.set(data);
-      this.currentIndex.set(0);
+    this.cargar();
+  }
+
+  /**
+   * Pide los trabajos. Está separado de `ngOnInit` para que el botón de
+   * reintentar pueda volver a llamarlo sin recargar la página.
+   *
+   * Los tres estados (cargando / error / contenido) son excluyentes, y "no hay
+   * contenido" y "no se pudo leer" llevan mensajes distintos porque son
+   * situaciones distintas: una es un salón sin trabajos cargados, la otra es un
+   * problema para averiguarlo.
+   */
+  cargar(): void {
+    this.cargando.set(true);
+    this.error.set(null);
+
+    this.appointmentService.getGaleria().subscribe({
+      next: (data) => {
+        this.galeria.set(data);
+        this.currentIndex.set(0);
+        this.cargando.set(false);
+      },
+      error: () => {
+        this.error.set(MENSAJES.errorAlCargar);
+        this.cargando.set(false);
+      },
     });
   }
 
