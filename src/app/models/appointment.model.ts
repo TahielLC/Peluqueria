@@ -17,7 +17,10 @@ export interface Peluquero {
   id: number;
   nombre: string;
   rol: string;
+  /** Descripción de la trayectoria. Texto libre. */
   experiencia: string;
+  /** Título o capacitación. Opcional: si no está, la línea no se muestra. */
+  titulo?: string;
   fotoUrl: string;
 }
 
