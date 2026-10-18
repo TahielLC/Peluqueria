@@ -85,7 +85,7 @@
 | T7a | S4 | delegado (writer) | hecho — `1ce0b26` | **El sitio lee sus textos de la base**: los 10 de `textos_sitio` (hero, servicios, equipo, galería), con el valor de fábrica como respaldo del primer pintado. |
 | T7b | S4, S8 | delegado (writer) | hecho — `6546fe9` | **El editor de textos en el panel**: la pestaña Textos lista los 10 con su etiqueta y su ayuda, deja editar y guarda, con confirmación visible y error legible. |
 | T8 | S5, S8 | delegada (contexto) | hecha (`8ced0a9`) | Edición de servicios y precios. |
-| T9 | S6, S8 | inline | pendiente | Staff + subida de foto. |
+| T9 | S6, S8 | delegada (contexto) | hecha (`c6b6721`) | Staff + subida de foto. |
 | T10 | S7, S8 | inline | pendiente | Galería + subida de foto. |
 | T11 | S8 | inline | pendiente | Manual de uso para la administradora. |
 
@@ -212,6 +212,16 @@
   - **El `orden` de un servicio nuevo es el máximo + 1**, así entra al final y no arriba de todo.
   - **Evidencia:** RED observado en cada etapa, 186/186 en verde, y una mutación —hacer que `actualizarServicio` ignore las filas devueltas— puso en rojo el test del caso "cero filas". `npm test`: `Test Files 16 passed (16)`, `Tests 186 passed (186)`.
   - **Assess de la rebanada** (`0b765a6..8ced0a9`): `risk: medium`, `review_due: false`, motivo `under_budget`. Se registra; no abre revisión nativa.
+- **L58** (2026-10-18) — **T9 hecho: la administradora edita los cinco campos del staff y sube la foto como archivo, nunca pegando una URL (S8).** Commit `c6b6721`. Suite **219/219** en 19 archivos (eran 186).
+  - **El bucket `fotos` ya estaba en el `schema.sql`** (lectura pública, escritura sólo para administradoras): no hizo falta crear nada nuevo. **Sin verificar contra el proyecto real**: los tests usan cliente falso (A5) y la subida de verdad es prueba de navegador.
+  - **La extensión del archivo sale del MIME, no del nombre.** Un `foto.png` puede ser un JPEG; con el nombre, la ruta mentiría.
+  - **La validación (JPG/PNG/WebP, hasta 5 MB) vive en el selector, no en el servicio de subida**: es el único lugar donde el error se puede mostrar al lado del campo. El servicio, si falla, falla; nunca devuelve una URL vacía.
+  - **Un fallo de subida no borra la foto anterior ni emite una URL**: la pantalla sigue mostrando la que estaba.
+  - **La foto subida no está en el sitio hasta que se guarda la fila, y la pantalla lo dice**: "Foto lista. Acordate de guardar."
+  - **`titulo` y `foto_url` vacíos se guardan como `NULL`**, no como cadena vacía: son opcionales en la base y el sitio oculta la línea del título cuando no hay.
+  - **S6 no pide alta ni baja de perfiles**, así que no se agregaron. Consecuencia anotada: un perfil inactivo (`activo = false`) no se puede editar desde esta pantalla, porque `getPeluqueros()` sólo devuelve activos.
+  - **Evidencia:** RED `Test Files 5 failed | 14 passed (19)`, `Tests 33 failed | 186 passed (219)`; GREEN `Tests 219 passed (219)`; la mutación que saca el chequeo de filas de `actualizarPeluquero` puso en rojo los dos tests del caso. Assess del slice (`0b765a6..c6b6721`): `review_due: false`, `under_budget`.
+
 
 
 
