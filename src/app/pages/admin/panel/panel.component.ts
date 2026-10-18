@@ -8,6 +8,7 @@ const MENSAJES = {
   cerrarSesion: 'Cerrar sesión',
   secciones: 'Secciones del panel',
   proximamente: 'Acá vas a poder editar esta parte del sitio. Llega en la próxima entrega.',
+  salidaFallo: 'No se pudo cerrar la sesión. Revisá tu conexión y probá de nuevo.',
 } as const;
 
 /**
@@ -85,6 +86,17 @@ export type IdSeccion = (typeof SECCIONES)[number]['id'];
           </button>
         </div>
 
+        @if (aviso(); as textoAviso) {
+          <div class="mx-auto max-w-4xl px-4 pb-3">
+            <p
+              role="alert"
+              class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              {{ textoAviso }}
+            </p>
+          </div>
+        }
+
         <div class="mx-auto max-w-4xl px-4">
           <div class="flex gap-1 overflow-x-auto" role="group" [attr.aria-label]="mensajes.secciones">
             @for (seccion of secciones; track seccion.id) {
@@ -125,6 +137,15 @@ export class AdminPanelComponent implements OnInit {
   readonly correo = signal<string | null>(null);
   readonly seccionActiva = signal<IdSeccion>('textos');
 
+  /**
+   * El único aviso que el panel muestra hoy: que la sesión no se pudo cerrar.
+   *
+   * Es un `signal` y no un `alert()` del navegador a propósito: un modal del
+   * sistema se cierra con un clic y después no queda rastro de por qué la
+   * persona sigue adentro. Esto queda a la vista hasta que la acción sale bien.
+   */
+  readonly aviso = signal<string | null>(null);
+
   readonly secciones = SECCIONES;
   readonly mensajes = MENSAJES;
 
@@ -150,9 +171,57 @@ export class AdminPanelComponent implements OnInit {
       : `${base} border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700`;
   }
 
+  /**
+   * Cerrar sesión, con el desenlace que corresponda.
+   *
+   * Antes esto era un `await cerrarSesion()` y navegar, sin mirar nada: si la
+   * salida fallaba, igual llevaba al login. Ahora la decisión está en
+   * `intentarSalir`, y acá sólo quedan las dos consecuencias posibles.
+   */
   async salir(): Promise<void> {
-    await this.autenticacion.cerrarSesion();
-    await this.router.navigateByUrl('/admin/login');
+    // Se limpia primero: si es un reintento, el aviso viejo no tiene que quedar
+    // colgado mientras se espera la respuesta.
+    this.aviso.set(null);
+
+    if (await this.intentarSalir()) {
+      await this.router.navigateByUrl('/admin/login');
+      return;
+    }
+
+    this.aviso.set(MENSAJES.salidaFallo);
+  }
+
+  /**
+   * Intenta cerrar la sesión y dice si corresponde irse al login.
+   *
+   * **Por qué esto no es un `if` de dos ramas.** Cerrar sesión tiene TRES
+   * desenlaces, y confundirlos es exactamente el bug que tenía este método:
+   *
+   *   1. Salió bien -> al login.
+   *
+   *   2. Falló, pero la sesión local **ya no está** -> igual al login. Supabase
+   *      borra la sesión local *antes* de avisarle al servidor, así que si falla
+   *      la red la persona igual quedó afuera de este navegador. Dejarla en el
+   *      panel sería peor que navegar.
+   *
+   *   3. Falló y la sesión sigue viva -> **no se navega**. Ir al login mentiría:
+   *      al volver a /admin el guard la dejaría pasar sin contraseña, y creería
+   *      que cerró algo que sigue abierto.
+   *
+   * Los casos 2 y 3 se distinguen preguntando, no adivinando. Y si ni siquiera
+   * se puede averiguar, se asume el 3: afirmar que la sesión se cerró cuando no
+   * se sabe es la única respuesta que no se puede dar.
+   */
+  private async intentarSalir(): Promise<boolean> {
+    try {
+      const resultado = await this.autenticacion.cerrarSesion();
+
+      // Si cerró bien no hay nada que preguntar; si falló, hay que ver si la
+      // sesión local sobrevivió.
+      return resultado.ok || !(await this.autenticacion.haySesion());
+    } catch {
+      return false;
+    }
   }
 
   /**

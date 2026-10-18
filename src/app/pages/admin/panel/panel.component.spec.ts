@@ -7,19 +7,46 @@ import { AuthService } from '../../../services/auth.service';
 /** Deja correr las promesas pendientes antes de mirar la pantalla. */
 const esperarPromesas = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-function crearAutenticacionFalsa(correo: string | null, fallaAlLeerCorreo = false) {
+/** Lo que devuelve un intento de cerrar sesión. */
+type ResultadoCierreFalso = { ok: true } | { ok: false; motivo: string };
+
+interface OpcionesDelPanel {
+  correo?: string | null;
+  fallaAlLeerCorreo?: boolean;
+  /**
+   * Lo que devuelve `cerrarSesion()`.
+   *
+   * Es un objeto y no un valor fijo a propósito: el mismo objeto se devuelve
+   * desde `armar()`, así que un test puede cambiarlo a mitad de camino y probar
+   * que **reintentar funciona**.
+   */
+  cierre?: ResultadoCierreFalso;
+  /** Si, después de un cierre fallido, la sesión local sigue viva. */
+  quedaSesion?: boolean;
+  /** Si preguntar por la sesión falla, para el caso "ni se pudo averiguar". */
+  fallaAlConsultarSesion?: boolean;
+}
+
+function crearAutenticacionFalsa(opciones: OpcionesDelPanel) {
   let salidas = 0;
 
   return {
     service: {
       async correoDeLaSesion() {
-        if (fallaAlLeerCorreo) {
+        if (opciones.fallaAlLeerCorreo) {
           throw new Error('no se pudo leer la sesión');
         }
-        return correo;
+        return opciones.correo ?? null;
       },
       async cerrarSesion() {
         salidas += 1;
+        return opciones.cierre ?? { ok: true };
+      },
+      async haySesion() {
+        if (opciones.fallaAlConsultarSesion) {
+          throw new Error('no se pudo leer la sesión');
+        }
+        return opciones.quedaSesion ?? false;
       },
     },
     salidas: () => salidas,
@@ -27,8 +54,11 @@ function crearAutenticacionFalsa(correo: string | null, fallaAlLeerCorreo = fals
 }
 
 describe('AdminPanelComponent', () => {
-  function armar(correo: string | null = 'admin@salon.test', fallaAlLeerCorreo = false) {
-    const autenticacionFalsa = crearAutenticacionFalsa(correo, fallaAlLeerCorreo);
+  function armar(opciones: OpcionesDelPanel = {}) {
+    // El correo por defecto es el de casi todos los tests; pasar `correo: null`
+    // lo pisa, porque el spread va después.
+    const opcionesEfectivas: OpcionesDelPanel = { correo: 'admin@salon.test', ...opciones };
+    const autenticacionFalsa = crearAutenticacionFalsa(opcionesEfectivas);
     const navegaciones: string[] = [];
 
     TestBed.resetTestingModule();
@@ -55,6 +85,8 @@ describe('AdminPanelComponent', () => {
       fixture,
       navegaciones,
       salidas: autenticacionFalsa.salidas,
+      /** La misma referencia que usa el falso: mutarla cambia el próximo intento. */
+      opciones: opcionesEfectivas,
       /** Lo que la persona realmente ve. */
       texto: () => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' '),
       /**
@@ -81,7 +113,7 @@ describe('AdminPanelComponent', () => {
   });
 
   it('muestra con qué cuenta se entró', async () => {
-    const { fixture } = armar('ana@salon.test');
+    const { fixture } = armar({ correo: 'ana@salon.test' });
 
     await esperarPromesas();
     fixture.detectChanges();
@@ -98,8 +130,79 @@ describe('AdminPanelComponent', () => {
     expect(navegaciones).toEqual(['/admin/login']);
   });
 
+  it('si el cierre falla y la sesión sigue viva, NO navega y lo dice en pantalla', async () => {
+    const { component, fixture, navegaciones } = armar({
+      cierre: { ok: false, motivo: 'sin_conexion' },
+      quedaSesion: true,
+    });
+
+    await component.salir();
+    fixture.detectChanges();
+
+    // Navegar acá sería mentir: al volver a /admin el guard la dejaría pasar sin
+    // contraseña, y la persona creería que cerró algo que sigue abierto.
+    expect(navegaciones).toEqual([]);
+
+    const alerta = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement | null;
+    expect(alerta?.textContent).toContain('No se pudo cerrar la sesión');
+  });
+
+  it('si el cierre falla pero la sesión local ya no está, igual va al login', async () => {
+    const { component, fixture, navegaciones } = armar({
+      cierre: { ok: false, motivo: 'sin_conexion' },
+      quedaSesion: false,
+    });
+
+    await component.salir();
+    fixture.detectChanges();
+
+    // Supabase borra la sesión local ANTES de avisarle al servidor. Si la red
+    // falla, de este lado la persona ya quedó afuera: dejarla en el panel sería
+    // peor que navegar.
+    expect(navegaciones).toEqual(['/admin/login']);
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('si ni siquiera se puede averiguar si hay sesión, NO navega: el error cae del lado cerrado', async () => {
+    const { component, fixture, navegaciones } = armar({
+      cierre: { ok: false, motivo: 'sin_conexion' },
+      fallaAlConsultarSesion: true,
+    });
+
+    await component.salir();
+    fixture.detectChanges();
+
+    // Afirmar "la sesión se cerró" sin poder comprobarlo es la única respuesta
+    // que no se puede dar. Mismo criterio que el guard, que ante la duda manda
+    // al login: acá la duda no puede dejar a la persona adentro creyendo que salió.
+    expect(navegaciones).toEqual([]);
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it('después de un fallo, reintentar funciona y el aviso se va', async () => {
+    const { component, fixture, opciones, navegaciones } = armar({
+      cierre: { ok: false, motivo: 'sin_conexion' },
+      quedaSesion: true,
+    });
+
+    await component.salir();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+
+    // El botón sigue ahí y sigue sirviendo. Si el aviso fuera un cartel muerto,
+    // la persona quedaría encerrada en el panel sin forma de salir.
+    opciones.cierre = { ok: true };
+    opciones.quedaSesion = false;
+
+    await component.salir();
+    fixture.detectChanges();
+
+    expect(navegaciones).toEqual(['/admin/login']);
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+  });
+
   it('si leer el correo falla, el panel igual se muestra y no queda una promesa suelta', async () => {
-    const { component, fixture } = armar('admin@salon.test', true);
+    const { component, fixture } = armar({ fallaAlLeerCorreo: true });
 
     // Un dato decorativo no justifica romper una pantalla que ya está autorizada,
     // ni dejar una promesa rechazada sin dueño.
@@ -178,7 +281,7 @@ describe('AdminPanelComponent', () => {
     });
 
     it('el panel dice con qué cuenta se está editando aunque el correo no se pueda leer', () => {
-      const { fixture } = armar(null);
+      const { fixture } = armar({ correo: null });
       fixture.detectChanges();
 
       // Sin correo, en vez de un hueco en blanco hay una marca de espera: el

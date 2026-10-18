@@ -9,6 +9,17 @@ export type MotivoDeFallo = 'credenciales' | 'correo_sin_confirmar' | 'desconoci
 
 export type ResultadoLogin = { ok: true } | { ok: false; motivo: MotivoDeFallo };
 
+/**
+ * Por qué no se pudo cerrar la sesión.
+ *
+ * Hace falta distinguir un cierre fallido de uno exitoso, y "falló" solo no
+ * alcanza: ver `salir` en el panel, que tiene que separar **tres** desenlaces
+ * distintos con este dato.
+ */
+export type MotivoDeCierre = 'sin_conexion' | 'desconocido';
+
+export type ResultadoCierre = { ok: true } | { ok: false; motivo: MotivoDeCierre };
+
 export interface Credenciales {
   correo: string;
   contrasena: string;
@@ -62,8 +73,33 @@ export class AuthService {
     return data.session?.user.email ?? null;
   }
 
-  async cerrarSesion(): Promise<void> {
-    await this.supabase.auth.signOut();
+  /**
+   * Cierra la sesión.
+   *
+   * Dos cosas que no son obvias y que hacen que este método NO sea un `await` y
+   * listo:
+   *
+   *   1. `signOut()` **no lanza** cuando falla la red: devuelve `{ error }`. Un
+   *      `try/catch` solo no lo cubre, hay que mirar el error devuelto.
+   *   2. El `try/catch` igual hace falta, por otro camino: `signOut()` arranca
+   *      con un `await initializePromise`, así que si el cliente no llegó a
+   *      inicializar, la promesa **rechaza**.
+   *
+   * Devuelve un resultado en vez de `void` porque el camino de falla no es uno
+   * solo, y quien llama necesita distinguirlos.
+   */
+  async cerrarSesion(): Promise<ResultadoCierre> {
+    try {
+      const { error } = await this.supabase.auth.signOut();
+
+      if (!error) {
+        return { ok: true };
+      }
+
+      return { ok: false, motivo: this.clasificarCierre(error.message) };
+    } catch {
+      return { ok: false, motivo: 'desconocido' };
+    }
   }
 
   /** Traduce el mensaje en inglés de Supabase a un motivo clasificado. */
@@ -78,5 +114,21 @@ export class AuthService {
     }
 
     return 'desconocido';
+  }
+
+  /**
+   * Traduce el mensaje del fallo de cierre.
+   *
+   * Acá sólo interesa separar "parece que no hay red" de todo lo demás: a quien
+   * usa el panel no le sirve saber si fue un 500 o un timeout, y el mensaje
+   * técnico no sale del servicio. El texto clasificado sólo cambia la redacción
+   * del aviso, nunca si se navega o no.
+   */
+  private clasificarCierre(mensaje: string): MotivoDeCierre {
+    const texto = mensaje.toLowerCase();
+
+    const senalesDeRed = ['fetch', 'network', 'timeout', 'load failed', 'connection'];
+
+    return senalesDeRed.some((senal) => texto.includes(senal)) ? 'sin_conexion' : 'desconocido';
   }
 }
