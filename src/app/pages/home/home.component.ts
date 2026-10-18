@@ -2,11 +2,12 @@ import { Component } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { StaffComponent } from "../../components/staff/staff.component";
 import { GalleryComponent } from "../../components/gallery/gallery.component";
+import { ServiciosComponent } from "../../components/servicios/servicios.component";
 
 @Component({
   selector: "app-home",
   standalone: true,
-  imports: [CommonModule, StaffComponent, GalleryComponent],
+  imports: [CommonModule, StaffComponent, GalleryComponent, ServiciosComponent],
   template: `
     <header class="bg-slate-900 text-white py-24 px-4 text-center">
       <div class="max-w-3xl mx-auto">
@@ -30,6 +31,7 @@ import { GalleryComponent } from "../../components/gallery/gallery.component";
       </div>
     </header>
 
+    <app-servicios></app-servicios>
     <app-gallery></app-gallery>
     <app-staff></app-staff>
   `,
