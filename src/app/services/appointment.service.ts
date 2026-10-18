@@ -1,7 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, from, map, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
-import { Servicio, Peluquero, Turno } from '../models/appointment.model';
+import {
+  DatosDeServicio,
+  Peluquero,
+  Servicio,
+  ServicioAdministrable,
+  Turno,
+} from '../models/appointment.model';
 import { ClaveDeTexto, TextoDeSitio, TrabajoGaleria } from '../models/salon.model';
 import { SUPABASE } from './supabase.client';
 
@@ -17,6 +23,11 @@ interface FilaServicio {
   descripcion: string;
   duracion_minutos: number;
   precio: number;
+}
+
+/** Igual que `FilaServicio`, más el estado que sólo necesita el panel. */
+interface FilaServicioAdministrable extends FilaServicio {
+  activo: boolean;
 }
 
 interface FilaPeluquero {
@@ -47,6 +58,25 @@ function aServicio(fila: FilaServicio): Servicio {
     precio: Number(fila.precio),
   };
 }
+
+function aServicioAdministrable(fila: FilaServicioAdministrable): ServicioAdministrable {
+  return {
+    ...aServicio(fila),
+    // La columna es `not null default true` en la base, así que acá siempre
+    // llega un booleano; el `=== true` no adivina un estado.
+    activo: fila.activo === true,
+  };
+}
+
+/**
+ * Lo que se dice cuando una escritura no afectó la fila esperada.
+ *
+ * No adivina la causa: puede ser la conexión, pero también que la cuenta haya
+ * dejado de ser la administradora. Mandar a revisar el wifi cuando el problema
+ * es otro le hace perder tiempo a quien no puede resolverlo.
+ */
+const NO_ACEPTO_EL_CAMBIO =
+  'la base no aceptó el cambio. Probá de nuevo; si sigue igual, avisá a quien te dio el acceso al panel.';
 
 function aPeluquero(fila: FilaPeluquero): Peluquero {
   return {
@@ -121,6 +151,121 @@ export class AppointmentService {
       map(({ data, error }) => {
         if (error) throw new Error(`No se pudieron leer los servicios: ${error.message}`);
         return ((data ?? []) as FilaServicio[]).map(aServicio);
+      }),
+    );
+  }
+
+  /**
+   * Los servicios tal como los necesita el panel: **activos e inactivos**.
+   *
+   * No lleva `.eq('activo', true)` a propósito. Si el panel sólo viera los
+   * activos, una baja por error sería irreversible desde la pantalla, que es
+   * justo lo que hay que evitar con alguien que no sabe de apps.
+   */
+  getTodosLosServicios(): Observable<ServicioAdministrable[]> {
+    return from(
+      this.supabase
+        .from('servicios')
+        .select('id, nombre, descripcion, duracion_minutos, precio, activo')
+        .order('orden')
+        .order('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los servicios: ${error.message}`);
+        return ((data ?? []) as FilaServicioAdministrable[]).map(aServicioAdministrable);
+      }),
+    );
+  }
+
+  /**
+   * Agrega un servicio al final del orden actual.
+   *
+   * El `orden` se calcula leyendo la tabla entera (son tres filas, no hace falta
+   * paginar ni ordenar). El `.select('id')` del insert pide la fila de vuelta:
+   * sin eso no habría forma de distinguir "se agregó" de "no se insertó nada".
+   */
+  crearServicio(datos: DatosDeServicio): Observable<void> {
+    return from(this.crearServicioEnLaBase(datos));
+  }
+
+  private async crearServicioEnLaBase(datos: DatosDeServicio): Promise<void> {
+    const { data: filas, error } = await this.supabase.from('servicios').select('orden');
+    if (error) throw new Error(`No se pudo leer el orden de los servicios: ${error.message}`);
+
+    const filasConOrden = (filas ?? []) as Array<{ orden: number | null }>;
+    // Con la tabla vacía, el primero entra en 1 (el máximo no existe todavía).
+    const orden =
+      filasConOrden.reduce((maximo, fila) => Math.max(maximo, Number(fila.orden ?? 0)), 0) + 1;
+
+    const { data: creadas, error: errorDelInsert } = await this.supabase
+      .from('servicios')
+      .insert({
+        nombre: datos.nombre,
+        descripcion: datos.descripcion,
+        duracion_minutos: datos.duracionMinutos,
+        precio: datos.precio,
+        orden,
+        activo: true,
+      })
+      .select('id');
+
+    if (errorDelInsert) {
+      throw new Error(`No se pudo agregar el servicio: ${errorDelInsert.message}`);
+    }
+
+    // Exactamente una fila: cero significa que no se insertó, y más de una no es
+    // lo que pidió un insert de un solo servicio.
+    if (!creadas || creadas.length !== 1) {
+      throw new Error(`No se agregó el servicio: ${NO_ACEPTO_EL_CAMBIO}`);
+    }
+  }
+
+  /**
+   * Cambia los cuatro campos editables de un servicio.
+   *
+   * El `.select('id')` no es decorativo: una política RLS de UPDATE **no lanza
+   * error**, filtra las filas en silencio y vuelve como éxito. Si no se miran
+   * las filas devueltas, el panel diría "guardado" sin haber guardado nada.
+   */
+  actualizarServicio(id: number, datos: DatosDeServicio): Observable<void> {
+    return from(
+      this.supabase
+        .from('servicios')
+        .update({
+          nombre: datos.nombre,
+          descripcion: datos.descripcion,
+          duracion_minutos: datos.duracionMinutos,
+          precio: datos.precio,
+        })
+        .eq('id', id)
+        .select('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo guardar el servicio: ${error.message}`);
+        if (!data || data.length !== 1) {
+          throw new Error(`No se guardó el servicio: ${NO_ACEPTO_EL_CAMBIO}`);
+        }
+      }),
+    );
+  }
+
+  /**
+   * Da de baja o vuelve a publicar un servicio.
+   *
+   * Es una baja **lógica**: se cambia `activo`, nunca se borra la fila. Los
+   * turnos que la referencien no tienen que romperse, y el sitio público ya
+   * filtra los inactivos. Verifica la fila devuelta por el mismo motivo que
+   * `actualizarServicio`: un UPDATE bloqueado por RLS no avisa.
+   */
+  cambiarActivoDeServicio(id: number, activo: boolean): Observable<void> {
+    return from(
+      this.supabase.from('servicios').update({ activo }).eq('id', id).select('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo cambiar el estado del servicio: ${error.message}`);
+        if (!data || data.length !== 1) {
+          throw new Error(`No se cambió el estado del servicio: ${NO_ACEPTO_EL_CAMBIO}`);
+        }
       }),
     );
   }

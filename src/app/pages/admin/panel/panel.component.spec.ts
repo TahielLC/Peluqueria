@@ -68,7 +68,16 @@ describe('AdminPanelComponent', () => {
         // El panel monta el editor de textos en su primera pestaña, así que sus
         // dos colaboradores tienen que estar doblados aunque el test no los mire:
         // sin esto, la pestaña intentaría hablar con Supabase.
-        { provide: AppointmentService, useValue: { getTextos: () => of([]) } },
+        {
+          provide: AppointmentService,
+          useValue: {
+            getTextos: () => of([]),
+            getTodosLosServicios: () => of([]),
+            actualizarServicio: () => of(void 0),
+            cambiarActivoDeServicio: () => of(void 0),
+            crearServicio: () => of(void 0),
+          },
+        },
         { provide: TextosSitioService, useValue: { guardar: () => of(void 0) } },
         {
           provide: Router,
@@ -232,14 +241,33 @@ describe('AdminPanelComponent', () => {
       expect(texto()).not.toContain('Llega en la próxima entrega');
     });
 
-    it('en las otras secciones el cartel de próximamente sigue', () => {
+  });
+
+  describe('las secciones que todavía no tienen editor', () => {
+    it('Equipo y Galería siguen mostrando el cartel de próximamente', () => {
+      const { fixture, panelVisible, pestanias, texto } = armar();
+
+      for (const indice of [2, 3]) {
+        pestanias()[indice].click();
+        fixture.detectChanges();
+
+        expect(panelVisible()[0].querySelector('app-seccion-textos')).toBeNull();
+        expect(panelVisible()[0].querySelector('app-seccion-servicios')).toBeNull();
+        expect(texto()).toContain('Llega en la próxima entrega');
+      }
+    });
+  });
+
+  describe('la sección Servicios', () => {
+    it('muestra el editor de servicios y ya no el cartel de próximamente', () => {
       const { fixture, panelVisible, pestanias, texto } = armar();
 
       pestanias()[1].click();
       fixture.detectChanges();
 
+      expect(panelVisible()[0].querySelector('app-seccion-servicios')).not.toBeNull();
       expect(panelVisible()[0].querySelector('app-seccion-textos')).toBeNull();
-      expect(texto()).toContain('Llega en la próxima entrega');
+      expect(texto()).not.toContain('Llega en la próxima entrega');
     });
   });
 
