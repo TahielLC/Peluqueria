@@ -108,6 +108,36 @@ describe('GalleryComponent', () => {
       expect(component.panelOpacity(1)).toBeLessThan(1);
       expect(component.panelOpacity(1)).toBeGreaterThan(0);
     });
+
+    it('los paneles lejanos quedan mas transparentes que un vecino directo', () => {
+      // Con 3 fotos la distancia angular maxima es 1, asi que el coeficiente
+      // que separa a los paneles lejanos nunca se ejerce. Hacen falta 5 fotos.
+      const component = setup(5);
+
+      expect(component.panelOpacity(1)).toBeCloseTo(0.3, 5);
+      expect(component.panelOpacity(2)).toBeCloseTo(0.21, 5);
+    });
+
+    it('con 2 fotos usa el radio fijo de 260px', () => {
+      const component = setup(2);
+
+      expect(component.radius()).toBe(260);
+      expect(component.step()).toBe(180);
+    });
+  });
+
+  describe('estado activo', () => {
+    it('isActive solo marca el indice actual', () => {
+      const component = setup(3);
+
+      expect(component.isActive(0)).toBe(true);
+      expect(component.isActive(1)).toBe(false);
+
+      component.next();
+
+      expect(component.isActive(0)).toBe(false);
+      expect(component.isActive(1)).toBe(true);
+    });
   });
 
   describe('navegacion', () => {

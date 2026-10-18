@@ -54,11 +54,12 @@
 | --- | --- | --- | --- | --- |
 | T1 | S1-S4 | inline | **hecho** | `npm test` exit 0 · builder `@angular/build:unit-test` · vitest 5.0.5 + jsdom 30.1.3 · `tsconfig.spec.json` con `types: ["vitest/globals"]` |
 | T2 | S5, S6 | inline | **hecho** | `services/appointment.service.spec.ts` — 6 tests |
-| T3 | S5, S6, S8 | inline | **hecho** | `components/gallery/gallery.component.spec.ts` — 19 tests |
-| T4 | S5, S6 | inline | **hecho** | `components/staff/staff.component.spec.ts` (13) + `components/servicios/servicios.component.spec.ts` (5) |
+| T3 | S5, S6, S8 | inline | **hecho** | `components/gallery/gallery.component.spec.ts` — 22 tests |
+| T4 | S5, S6 | inline | **hecho** | `components/staff/staff.component.spec.ts` (14) + `components/servicios/servicios.component.spec.ts` (5) |
 | T5 | S7 | inline | **hecho** | build de producción OK · `grep` de `vitest\|TestBed\|spec.ts` en `dist/` = LIMPIO |
+| T6 | verificación | delegada | **hecho** | verificador independiente `gentle-ai-verify` — ver L8 y L9 |
 
-**Suite total: 43 tests / 4 archivos / 4.3s.**
+**Suite total: 47 tests / 4 archivos / ~4s.**
 
 ## Log
 
@@ -69,3 +70,6 @@
 - **L5** (2026-10-18) — T1-T5 implementadas inline. Config: `angular.json` (+target `test` con `options: {}`, la forma exacta que genera el schematic del CLI), `tsconfig.spec.json` (nuevo), `package.json` (`test: ng test --watch=false`, `test:watch: ng test`). Specs: 4 archivos junto a cada unidad.
 - **L6** (2026-10-18) — **Prueba de mutación sobre la regresión del radio.** Se inyectó a propósito la fórmula vieja (`touching * 1.8` → 177px) y la suite pasó a **5 tests fallidos con exit code 1**, incluyendo `el radio supera el ancho del panel para que los vecinos asomen`. Restaurado con `git checkout` y reverificado en verde. Esto demuestra que los tests no son vacíos: fallan cuando el código está mal. **Alcance de la prueba: sólo la geometría del radio.** El resto de la suite (swipe, navegación, formato de precio) no fue mutada todavía — queda como verificación independiente.
 - **L7** (2026-10-18) — Error propio registrado: el primer `setup()` de los specs no llamaba a `TestBed.resetTestingModule()`, y el test que prueba 3 tamaños distintos (`for cantidad of [3,4,6]`) falló con `Cannot configure the test module when the test module has already been instantiated`. `TestBed.configureTestingModule` sólo puede llamarse una vez por instancia. Corregido moviendo el reset dentro de `setup()` en los tres specs, lo que además vuelve al helper auto-contenido.
+- **L8** (2026-10-18) — **Verificación independiente** (agente `gentle-ai-verify`, sesión delegada, scratch en `/tmp/opencode/verify-infra-xoKUMh`). Resultado: **S1–S8 cumplidos**, los 3 supuestos confirmados, build de producción verificado desde cero. **Las 8 mutaciones solicitadas mataron tests** (exit 1) — la suite no es decorativa. El verificador **corroboró L6 de forma independiente** inyectando la fórmula vieja del radio y obteniendo los mismos 5 fallos. Puntos ciegos que encontró (mutaciones que pasaban inadvertidas): (a) rama `n===2` del radio, (b) `isActive()` en galería, (c) `isActive()` en staff, (d) el coeficiente `0.09` de `panelOpacity`, inobservable con 3 fotos. Los clasificó como ADVISORY (pre-existentes al cambio de tests) y entregó 4 tests probe.
+- **L9** (2026-10-18) — **Re-chequeo del padre sobre los 4 probes recién agregados.** Se mutaron los 4 puntos ciegos a la vez y la suite pasó a **exactamente 4 tests fallidos, uno por mutación** (`con 2 fotos usa el radio fijo de 260px`, `los paneles lejanos quedan mas transparentes que un vecino directo`, `isActive solo marca el indice actual`, `isActive solo marca el perfil actual`), con exit code 1. Restaurado desde backup fuera del workspace y reverificado en verde (47/47). Los probes cierran los 4 huecos que el verificador reportó.
+- **L10** (2026-10-18) — **Límite honesto del alcance:** la prueba de mutación cubre navegación, swipe, umbrales, formato de precio, validación de rango, transform del track, opacidad y geometría. **No** cubre manejo de errores ni estados de carga, porque ese código **todavía no existe** — es el próximo hueco a encarar.

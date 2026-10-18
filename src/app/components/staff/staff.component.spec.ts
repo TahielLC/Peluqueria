@@ -80,6 +80,20 @@ describe('StaffComponent', () => {
     });
   });
 
+  describe('estado activo', () => {
+    it('isActive solo marca el perfil actual', () => {
+      const component = setup(3);
+
+      expect(component.isActive(0)).toBe(true);
+      expect(component.isActive(2)).toBe(false);
+
+      component.next();
+
+      expect(component.isActive(0)).toBe(false);
+      expect(component.isActive(1)).toBe(true);
+    });
+  });
+
   describe('navegacion', () => {
     it('avanza y vuelve al principio al pasarse', () => {
       const component = setup(3);
