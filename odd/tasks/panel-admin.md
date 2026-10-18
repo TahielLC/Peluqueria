@@ -5,7 +5,7 @@
 **Repo:** `/home/luislinx/Escritorio/projectTest` · **App:** `src/app` (Angular 22.2.3, Node 22, npm 12)
 **Runner:** Vitest + jsdom (`npm test`, 47 tests verdes al arrancar).
 **Persistencia:** **Supabase** — Postgres + Auth + Storage. Decisión del usuario (ver L2).
-**Entrega:** rama `feat/panel-admin`, publicada. **PR #1:** https://github.com/TahielLC/Peluqueria/pull/1 (abierta el 2026-10-18 sobre `main`).
+**Entrega:** **PR #1 mergeada en `main`** (`0b765a6`). Slice nuevo en `feat/panel-servicios`, desde `main`.
 **Riesgo declarado:** items 2 (seguridad: login y credenciales), 3 (contrato de datos que consume el sitio público) y 5 (dependencia nueva + configuración de entorno).
 
 ## Specs
@@ -201,6 +201,11 @@
 - **L55** (2026-10-18) — **S4 cerrada de punta a punta, por el usuario y en el navegador.** Entró con su cuenta, cambió un texto desde la pestaña Textos, guardó, recargó y el cambio estaba: *"los cambios se hicieron efectivos"*.
   - **Qué probó esto que ningún test podía probar.** La cadena completa con sesión y RLS reales: la sesión del panel llegó a la política de escritura (`exists` contra `administradores`) y la dejó pasar; el UPDATE actualizó **una fila de verdad** —si no, el `.select()` de la costura habría hecho saltar el aviso de fallo, y el usuario no habría visto el cambio—; y el sitio lee el valor nuevo de la base. Los tests usaban dobles; esto usó Supabase.
   - **Lo que sigue cubierto sólo por test, y hay que decirlo:** la actualización de la copia en memoria **sin recargar**. El usuario recargó la página, así que el camino observado fue "guardar y recargar". El `tap` de `TextosSitioService.guardar()` está probado por unidad (mutación M6), pero no se observó en el navegador. No es un hueco de datos —ya está en la base— sino una comodidad sin observar.
+- **L56** (2026-10-18) — **PR #1 mergeada en `main` (`0b765a6`) y `gh` instalado.** El usuario mergeó; `main` local quedó sincronizado con `origin/main` y el árbol limpio.
+  - **`gh` 2.102.0, autenticado como `TahielLC` con scope `repo`.** Desde acá las PR se abren con `gh pr create` y se consultan con `gh pr view`, en vez de armar la llamada a la API a mano.
+  - **La rama remota `feat/panel-admin` sigue existiendo**: GitHub no la borró al mergear y yo no la borré, porque borrar una rama remota no es una decisión que me corresponda. Queda anotada.
+  - **El slice siguiente abre rama nueva**, `feat/panel-servicios`, desde `main`: `feat/panel-admin` ya está mergeada y quedó atrás del commit de merge.
+
 
 
 
