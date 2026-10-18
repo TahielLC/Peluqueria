@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
+import { SeccionTextosComponent } from '../seccion-textos/seccion-textos.component';
 
 /** Textos fijos del panel. */
 const MENSAJES = {
@@ -20,8 +21,8 @@ const MENSAJES = {
  *
  * Están en una lista y no escritas a mano en la plantilla por un motivo
  * concreto: el orden de las pestañas, el título y el resumen de cada una se
- * definen **en un solo lugar**. Cuando T7 a T10 metan los editores de verdad,
- * cada uno cambia su entrada y no hay que tocar la plantilla del panel.
+ * definen **en un solo lugar**. Cuando T8 a T10 metan sus editores, cada uno
+ * reemplaza su cartel de "próximamente" por su componente, como ya hace Textos.
  */
 const SECCIONES = [
   {
@@ -72,6 +73,7 @@ export type IdSeccion = (typeof SECCIONES)[number]['id'];
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
+  imports: [SeccionTextosComponent],
   template: `
     <section class="min-h-screen bg-gray-100">
       <header class="bg-white border-b border-gray-200">
@@ -124,9 +126,13 @@ export type IdSeccion = (typeof SECCIONES)[number]['id'];
               <h2 class="mb-2 text-xl font-semibold text-gray-800">{{ seccion.titulo }}</h2>
               <p class="mb-6 text-gray-500">{{ seccion.resumen }}</p>
 
-              <p class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
-                {{ mensajes.proximamente }}
-              </p>
+              @if (seccion.id === 'textos') {
+                <app-seccion-textos />
+              } @else {
+                <p class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
+                  {{ mensajes.proximamente }}
+                </p>
+              }
             </section>
           }
         }

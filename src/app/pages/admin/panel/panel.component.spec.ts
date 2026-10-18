@@ -1,8 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { of } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AdminPanelComponent } from './panel.component';
 import { AuthService } from '../../../services/auth.service';
+import { AppointmentService } from '../../../services/appointment.service';
+import { TextosSitioService } from '../../../services/textos-sitio.service';
 
 /** Deja correr las promesas pendientes antes de mirar la pantalla. */
 const esperarPromesas = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -62,6 +65,11 @@ describe('AdminPanelComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: AuthService, useValue: autenticacionFalsa.service },
+        // El panel monta el editor de textos en su primera pestaña, así que sus
+        // dos colaboradores tienen que estar doblados aunque el test no los mire:
+        // sin esto, la pestaña intentaría hablar con Supabase.
+        { provide: AppointmentService, useValue: { getTextos: () => of([]) } },
+        { provide: TextosSitioService, useValue: { guardar: () => of(void 0) } },
         {
           provide: Router,
           useValue: {
@@ -214,6 +222,25 @@ describe('AdminPanelComponent', () => {
 
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Panel de administración');
+  });
+
+  describe('la sección Textos', () => {
+    it('muestra el editor de textos y ya no el cartel de próximamente', () => {
+      const { panelVisible, texto } = armar();
+
+      expect(panelVisible()[0].querySelector('app-seccion-textos')).not.toBeNull();
+      expect(texto()).not.toContain('Llega en la próxima entrega');
+    });
+
+    it('en las otras secciones el cartel de próximamente sigue', () => {
+      const { fixture, panelVisible, pestanias, texto } = armar();
+
+      pestanias()[1].click();
+      fixture.detectChanges();
+
+      expect(panelVisible()[0].querySelector('app-seccion-textos')).toBeNull();
+      expect(texto()).toContain('Llega en la próxima entrega');
+    });
   });
 
   describe('las 4 secciones', () => {
