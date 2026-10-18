@@ -14,6 +14,8 @@ interface Consulta {
   columnas: string;
   filtros: Array<[string, unknown]>;
   orden: string[];
+  /** Los valores de un `update`, o `null` si la consulta sólo lee. */
+  cambios: Record<string, unknown> | null;
 }
 
 /**
@@ -29,7 +31,7 @@ function crearSupabaseFalso(respuestas: Record<string, Respuesta>) {
 
   const cliente = {
     from(tabla: string) {
-      const consulta: Consulta = { tabla, columnas: '', filtros: [], orden: [] };
+      const consulta: Consulta = { tabla, columnas: '', filtros: [], orden: [], cambios: null };
       consultas.push(consulta);
 
       const constructor = {
@@ -43,6 +45,13 @@ function crearSupabaseFalso(respuestas: Record<string, Respuesta>) {
         },
         order(columna: string) {
           consulta.orden.push(columna);
+          return constructor;
+        },
+        // `update` marca la consulta como escritura y guarda lo que se manda. De
+        // acá en adelante la cadena es la misma —`eq`, `select`— así que el
+        // mismo doble sirve para leer y para escribir sin duplicarse.
+        update(cambios: Record<string, unknown>) {
+          consulta.cambios = cambios;
           return constructor;
         },
         // Hace que el constructor sea "thenable", que es lo que `from()` de RxJS
@@ -286,6 +295,104 @@ describe('AppointmentService', () => {
 
       expect(resultado.success).toBe(true);
       expect(resultado.message).toBeTruthy();
+    });
+  });
+
+  describe('getTextos', () => {
+    it('devuelve los textos con su etiqueta y su ayuda, en el orden del panel', async () => {
+      const { service, consultas } = armar({
+        textos_sitio: {
+          data: [
+            {
+              clave: 'hero_titulo',
+              valor: 'Peluquería Don Juan',
+              etiqueta: 'Nombre del salón',
+              ayuda: 'Es el título más grande de la página de inicio.',
+            },
+            {
+              clave: 'servicios_bajada',
+              valor: 'Precios claros.',
+              etiqueta: 'Frase debajo del título de servicios',
+              ayuda: null,
+            },
+          ],
+          error: null,
+        },
+      });
+
+      const textos = await firstValueFrom(service.getTextos());
+
+      expect(textos).toEqual([
+        {
+          clave: 'hero_titulo',
+          valor: 'Peluquería Don Juan',
+          etiqueta: 'Nombre del salón',
+          ayuda: 'Es el título más grande de la página de inicio.',
+        },
+        {
+          clave: 'servicios_bajada',
+          valor: 'Precios claros.',
+          etiqueta: 'Frase debajo del título de servicios',
+          ayuda: null,
+        },
+      ]);
+      expect(consultas[0].tabla).toBe('textos_sitio');
+      expect(consultas[0].orden).toEqual(['orden']);
+    });
+
+    it('si Supabase falla, el Observable falla', async () => {
+      const { service } = armar({
+        textos_sitio: { data: null, error: { message: 'sin red' } },
+      });
+
+      await expect(firstValueFrom(service.getTextos())).rejects.toThrow(/textos.*sin red/);
+    });
+  });
+
+  describe('guardarTexto', () => {
+    it('manda el valor nuevo y filtra por clave', async () => {
+      const { service, consultas } = armar({
+        textos_sitio: { data: [{ clave: 'hero_titulo' }], error: null },
+      });
+
+      await firstValueFrom(service.guardarTexto('hero_titulo', 'Peluquería Don Juan'));
+
+      expect(consultas[0].tabla).toBe('textos_sitio');
+      expect(consultas[0].cambios).toEqual({ valor: 'Peluquería Don Juan' });
+      expect(consultas[0].filtros).toEqual([['clave', 'hero_titulo']]);
+    });
+
+    it('pide la fila actualizada de vuelta, que es lo que distingue guardar de no tocar nada', async () => {
+      const { service, consultas } = armar({
+        textos_sitio: { data: [{ clave: 'hero_titulo' }], error: null },
+      });
+
+      await firstValueFrom(service.guardarTexto('hero_titulo', 'x'));
+
+      expect(consultas[0].columnas).toBe('clave');
+    });
+
+    it('si la base no actualiza ninguna fila, FALLA en vez de decir que guardó', async () => {
+      // El caso de la política RLS que filtra en silencio: un UPDATE bloqueado
+      // no lanza error, afecta cero filas y vuelve como éxito. Sin mirar las
+      // filas, el panel diría "guardado" sin haber guardado nada.
+      const { service } = armar({
+        textos_sitio: { data: [], error: null },
+      });
+
+      await expect(
+        firstValueFrom(service.guardarTexto('hero_titulo', 'Peluquería Don Juan')),
+      ).rejects.toThrow(/no aceptó el cambio/);
+    });
+
+    it('si Supabase devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        textos_sitio: { data: null, error: { message: 'row-level security policy' } },
+      });
+
+      await expect(firstValueFrom(service.guardarTexto('hero_titulo', 'x'))).rejects.toThrow(
+        /guardar el texto.*row-level security/,
+      );
     });
   });
 });

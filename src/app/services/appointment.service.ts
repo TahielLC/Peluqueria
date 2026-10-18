@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, from, map, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
 import { Servicio, Peluquero, Turno } from '../models/appointment.model';
-import { TrabajoGaleria } from '../models/salon.model';
+import { ClaveDeTexto, TextoDeSitio, TrabajoGaleria } from '../models/salon.model';
 import { SUPABASE } from './supabase.client';
 
 /**
@@ -73,6 +73,25 @@ function aTrabajoGaleria(fila: FilaGaleria): TrabajoGaleria {
   };
 }
 
+interface FilaTexto {
+  clave: string;
+  valor: string;
+  etiqueta: string;
+  ayuda: string | null;
+}
+
+function aTexto(fila: FilaTexto): TextoDeSitio {
+  return {
+    // La columna es texto libre en la base; el modelo la restringe al conjunto
+    // cerrado de claves. Las filas las carga el mismo schema que define el
+    // modelo, así que el valor siempre viene de ahí.
+    clave: fila.clave as ClaveDeTexto,
+    valor: fila.valor,
+    etiqueta: fila.etiqueta,
+    ayuda: fila.ayuda,
+  };
+}
+
 /**
  * Acceso al contenido del sitio, guardado en Supabase.
  *
@@ -134,6 +153,57 @@ export class AppointmentService {
       map(({ data, error }) => {
         if (error) throw new Error(`No se pudieron leer los trabajos: ${error.message}`);
         return ((data ?? []) as FilaGaleria[]).map(aTrabajoGaleria);
+      }),
+    );
+  }
+
+  /**
+   * Los textos editables del sitio, en el orden en que los muestra el panel.
+   *
+   * Devuelve también la etiqueta y la ayuda de cada uno: son lo que hace que la
+   * pantalla de edición se lea en castellano en vez de mostrar `hero_titulo`.
+   */
+  getTextos(): Observable<TextoDeSitio[]> {
+    return from(
+      this.supabase
+        .from('textos_sitio')
+        .select('clave, valor, etiqueta, ayuda')
+        .order('orden'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los textos del sitio: ${error.message}`);
+        return ((data ?? []) as FilaTexto[]).map(aTexto);
+      }),
+    );
+  }
+
+  /**
+   * Guarda el valor de un texto. La clave no se toca: es la identidad de la fila.
+   *
+   * El `.select('clave')` del final no es decorativo, y el motivo importa. Una
+   * política RLS de UPDATE se comporta distinto que una de INSERT: donde el
+   * INSERT falla con error, el UPDATE **no actualiza las filas que no pasan el
+   * filtro y no dice nada**. Si esta sesión dejara de ser la administradora, el
+   * UPDATE afectaría cero filas y volvería como éxito, y el panel diría
+   * "guardado" sin haber guardado nada. Pidiendo la fila de vuelta se distingue
+   * "se guardó" de "no se tocó nada", que es la única diferencia que le importa
+   * a quien está del otro lado de la pantalla.
+   */
+  guardarTexto(clave: ClaveDeTexto, valor: string): Observable<void> {
+    return from(
+      this.supabase
+        .from('textos_sitio')
+        .update({ valor })
+        .eq('clave', clave)
+        .select('clave'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo guardar el texto: ${error.message}`);
+        if (!data || data.length === 0) {
+          throw new Error(
+            'No se guardó el texto: la base no aceptó el cambio. Probá de nuevo; si sigue igual, avisá a quien te dio el acceso.',
+          );
+        }
       }),
     );
   }
