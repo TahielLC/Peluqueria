@@ -5,7 +5,7 @@
 **Repo:** `/home/luislinx/Escritorio/projectTest` · **App:** `src/app` (Angular 22.2.3, Node 22, npm 12)
 **Runner:** Vitest + jsdom (`npm test`, 47 tests verdes al arrancar).
 **Persistencia:** **Supabase** — Postgres + Auth + Storage. Decisión del usuario (ver L2).
-**Entrega:** rama `feat/panel-admin`. Sin PR hasta que el usuario lo decida.
+**Entrega:** rama `feat/panel-admin`, publicada. **PR #1:** https://github.com/TahielLC/Peluqueria/pull/1 (abierta el 2026-10-18 sobre `main`; 22 commits, 37 archivos).
 **Riesgo declarado:** items 2 (seguridad: login y credenciales), 3 (contrato de datos que consume el sitio público) y 5 (dependencia nueva + configuración de entorno).
 
 ## Specs
