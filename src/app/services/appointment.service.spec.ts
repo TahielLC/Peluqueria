@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppointmentService } from './appointment.service';
 import { SUPABASE } from './supabase.client';
 import { DatosDePeluquero } from '../models/appointment.model';
+import { DatosDeTrabajoDeGaleria } from '../models/salon.model';
 
 /** Respuesta que el cliente falso va a devolver para una tabla. */
 type Respuesta = { data: unknown[] | null; error: { message: string } | null };
@@ -588,6 +589,207 @@ describe('AppointmentService', () => {
       const { service } = armar({ galeria: { data: null, error: { message: 'sin red' } } });
 
       await expect(firstValueFrom(service.getGaleria())).rejects.toThrow(/trabajos.*sin red/);
+    });
+  });
+
+  describe('getTodaLaGaleria', () => {
+    it('trae los trabajos activos e inactivos, sin filtrar por activo y en orden', async () => {
+      const { service, consultas } = armar({
+        galeria: {
+          data: [
+            {
+              id: 2,
+              titulo: 'Color caramelo',
+              categoria: 'Color',
+              imagen_url: 'https://fotos.test/caramelo.jpg',
+              activo: false,
+            },
+            {
+              id: 1,
+              titulo: 'Fade moderno',
+              categoria: 'Corte',
+              imagen_url: 'https://fotos.test/fade.jpg',
+              activo: true,
+            },
+          ],
+          error: null,
+        },
+      });
+
+      const trabajos = await firstValueFrom(service.getTodaLaGaleria());
+
+      expect(trabajos).toEqual([
+        {
+          id: 2,
+          titulo: 'Color caramelo',
+          categoria: 'Color',
+          imagenUrl: 'https://fotos.test/caramelo.jpg',
+          activo: false,
+        },
+        {
+          id: 1,
+          titulo: 'Fade moderno',
+          categoria: 'Corte',
+          imagenUrl: 'https://fotos.test/fade.jpg',
+          activo: true,
+        },
+      ]);
+
+      expect(consultas[0].tabla).toBe('galeria');
+      // Sin filtro de activo: el panel necesita ver también lo dado de baja para
+      // poder volver a publicarlo.
+      expect(consultas[0].filtros).toEqual([]);
+      expect(consultas[0].orden).toEqual(['orden', 'id']);
+      expect(consultas[0].columnas).toContain('activo');
+    });
+
+    it('si Supabase falla, el Observable falla', async () => {
+      const { service } = armar({ galeria: { data: null, error: { message: 'sin red' } } });
+
+      await expect(firstValueFrom(service.getTodaLaGaleria())).rejects.toThrow(
+        /trabajos.*sin red/,
+      );
+    });
+  });
+
+  describe('crearTrabajoDeGaleria', () => {
+    const DATOS: DatosDeTrabajoDeGaleria = {
+      titulo: 'Peinado con ondas',
+      categoria: 'Peinado',
+      imagenUrl: 'https://fotos.test/ondas.jpg',
+    };
+
+    it('calcula el orden como el máximo + 1 e inserta activo con los nombres de la base', async () => {
+      const { service, consultas } = armar({
+        galeria: [
+          // Primero la lectura del orden de toda la tabla, después la fila nueva.
+          { data: [{ orden: 0 }, { orden: 4 }, { orden: 2 }], error: null },
+          { data: [{ id: 9 }], error: null },
+        ],
+      });
+
+      await firstValueFrom(service.crearTrabajoDeGaleria(DATOS));
+
+      expect(consultas).toHaveLength(2);
+
+      // La lectura del orden es de toda la tabla: sin filtro ni orden, a
+      // propósito. Es una tabla de tres filas, no hace falta paginar.
+      expect(consultas[0].columnas).toBe('orden');
+      expect(consultas[0].filtros).toEqual([]);
+      expect(consultas[0].orden).toEqual([]);
+
+      expect(consultas[1].insercion).toEqual({
+        titulo: 'Peinado con ondas',
+        categoria: 'Peinado',
+        imagen_url: 'https://fotos.test/ondas.jpg',
+        orden: 5,
+        activo: true,
+      });
+      expect(consultas[1].columnas).toBe('id');
+    });
+
+    it('si la base no devuelve la fila insertada, FALLA en vez de decir que agregó', async () => {
+      const { service } = armar({
+        galeria: [
+          { data: [], error: null },
+          { data: [], error: null },
+        ],
+      });
+
+      await expect(firstValueFrom(service.crearTrabajoDeGaleria(DATOS))).rejects.toThrow(
+        /No se agregó el trabajo.*no aceptó el cambio/,
+      );
+    });
+
+    it('si el insert devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        galeria: [
+          { data: [], error: null },
+          { data: null, error: { message: 'row-level security policy' } },
+        ],
+      });
+
+      await expect(firstValueFrom(service.crearTrabajoDeGaleria(DATOS))).rejects.toThrow(
+        /agregar el trabajo.*row-level security/,
+      );
+    });
+  });
+
+  describe('actualizarTrabajoDeGaleria', () => {
+    const DATOS: DatosDeTrabajoDeGaleria = {
+      titulo: 'Fade con diseño',
+      categoria: 'Barba',
+      imagenUrl: 'https://fotos.test/fade-nuevo.jpg',
+    };
+
+    it('manda los tres campos editables y filtra por id', async () => {
+      const { service, consultas } = armar({
+        galeria: { data: [{ id: 7 }], error: null },
+      });
+
+      await firstValueFrom(service.actualizarTrabajoDeGaleria(7, DATOS));
+
+      expect(consultas[0].tabla).toBe('galeria');
+      expect(consultas[0].cambios).toEqual({
+        titulo: 'Fade con diseño',
+        categoria: 'Barba',
+        imagen_url: 'https://fotos.test/fade-nuevo.jpg',
+      });
+      expect(consultas[0].filtros).toEqual([['id', 7]]);
+      // Pedir la fila de vuelta es lo que distingue "se guardó" de "no se tocó
+      // nada": un UPDATE bloqueado por RLS afecta cero filas y no da error.
+      expect(consultas[0].columnas).toBe('id');
+    });
+
+    it('si la base no actualiza ninguna fila, FALLA en vez de decir que guardó', async () => {
+      const { service } = armar({ galeria: { data: [], error: null } });
+
+      await expect(
+        firstValueFrom(service.actualizarTrabajoDeGaleria(7, DATOS)),
+      ).rejects.toThrow(/No se guardó el trabajo.*no aceptó el cambio/);
+    });
+
+    it('si Supabase devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        galeria: { data: null, error: { message: 'row-level security policy' } },
+      });
+
+      await expect(
+        firstValueFrom(service.actualizarTrabajoDeGaleria(7, DATOS)),
+      ).rejects.toThrow(/guardar el trabajo.*row-level security/);
+    });
+  });
+
+  describe('cambiarActivoDeTrabajoDeGaleria', () => {
+    it('manda el estado nuevo y filtra por id', async () => {
+      const { service, consultas } = armar({
+        galeria: { data: [{ id: 3 }], error: null },
+      });
+
+      await firstValueFrom(service.cambiarActivoDeTrabajoDeGaleria(3, false));
+
+      expect(consultas[0].tabla).toBe('galeria');
+      expect(consultas[0].cambios).toEqual({ activo: false });
+      expect(consultas[0].filtros).toEqual([['id', 3]]);
+      expect(consultas[0].columnas).toBe('id');
+    });
+
+    it('si la base no actualiza ninguna fila, FALLA en vez de decir que cambió', async () => {
+      const { service } = armar({ galeria: { data: [], error: null } });
+
+      await expect(
+        firstValueFrom(service.cambiarActivoDeTrabajoDeGaleria(3, false)),
+      ).rejects.toThrow(/No se cambió el estado del trabajo.*no aceptó el cambio/);
+    });
+
+    it('si Supabase devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        galeria: { data: null, error: { message: 'sin red' } },
+      });
+
+      await expect(
+        firstValueFrom(service.cambiarActivoDeTrabajoDeGaleria(3, false)),
+      ).rejects.toThrow(/cambiar el estado del trabajo.*sin red/);
     });
   });
 

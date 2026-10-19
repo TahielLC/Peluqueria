@@ -1,7 +1,28 @@
+/**
+ * Las categorías de la galería.
+ *
+ * La base guarda `categoria` como texto libre, pero el panel sólo ofrece estas
+ * cuatro y el sitio las usa para agrupar los trabajos. Tenerlas con nombre evita
+ * repetir la unión en el modelo, en el servicio y en el editor.
+ */
+export type CategoriaDeTrabajo = 'Corte' | 'Peinado' | 'Barba' | 'Color';
+
 export interface TrabajoGaleria {
   id: number;
   titulo: string;
-  categoria: 'Corte' | 'Peinado' | 'Barba' | 'Color';
+  categoria: CategoriaDeTrabajo;
+  imagenUrl: string;
+}
+
+/** Un trabajo tal como lo ve el panel: además de lo público, si está publicado. */
+export interface TrabajoDeGaleriaAdministrable extends TrabajoGaleria {
+  activo: boolean;
+}
+
+/** Lo que la administradora edita. El orden y la baja no se editan desde acá. */
+export interface DatosDeTrabajoDeGaleria {
+  titulo: string;
+  categoria: CategoriaDeTrabajo;
   imagenUrl: string;
 }
 

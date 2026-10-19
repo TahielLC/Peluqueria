@@ -9,7 +9,13 @@ import {
   ServicioAdministrable,
   Turno,
 } from '../models/appointment.model';
-import { ClaveDeTexto, TextoDeSitio, TrabajoGaleria } from '../models/salon.model';
+import {
+  ClaveDeTexto,
+  DatosDeTrabajoDeGaleria,
+  TextoDeSitio,
+  TrabajoDeGaleriaAdministrable,
+  TrabajoGaleria,
+} from '../models/salon.model';
 import { SUPABASE } from './supabase.client';
 
 /**
@@ -45,6 +51,11 @@ interface FilaGaleria {
   titulo: string;
   categoria: string;
   imagen_url: string | null;
+}
+
+/** Igual que `FilaGaleria`, más el estado que sólo necesita el panel. */
+interface FilaGaleriaAdministrable extends FilaGaleria {
+  activo: boolean;
 }
 
 function aServicio(fila: FilaServicio): Servicio {
@@ -109,6 +120,17 @@ interface FilaTexto {
   valor: string;
   etiqueta: string;
   ayuda: string | null;
+}
+
+function aTrabajoDeGaleriaAdministrable(
+  fila: FilaGaleriaAdministrable,
+): TrabajoDeGaleriaAdministrable {
+  return {
+    ...aTrabajoGaleria(fila),
+    // La columna es `not null default true` en la base, así que acá siempre
+    // llega un booleano; el `=== true` no adivina un estado.
+    activo: fila.activo === true,
+  };
 }
 
 function aTexto(fila: FilaTexto): TextoDeSitio {
@@ -336,6 +358,123 @@ export class AppointmentService {
       map(({ data, error }) => {
         if (error) throw new Error(`No se pudieron leer los trabajos: ${error.message}`);
         return ((data ?? []) as FilaGaleria[]).map(aTrabajoGaleria);
+      }),
+    );
+  }
+
+  /**
+   * Los trabajos tal como los necesita el panel: **activos e inactivos**.
+   *
+   * No lleva `.eq('activo', true)` a propósito. Si el panel sólo viera los
+   * activos, una baja por error sería irreversible desde la pantalla, que es
+   * justo lo que hay que evitar con alguien que no sabe de apps.
+   */
+  getTodaLaGaleria(): Observable<TrabajoDeGaleriaAdministrable[]> {
+    return from(
+      this.supabase
+        .from('galeria')
+        .select('id, titulo, categoria, imagen_url, activo')
+        .order('orden')
+        .order('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los trabajos: ${error.message}`);
+        return ((data ?? []) as FilaGaleriaAdministrable[]).map(aTrabajoDeGaleriaAdministrable);
+      }),
+    );
+  }
+
+  /**
+   * Agrega un trabajo al final del orden actual.
+   *
+   * El `orden` se calcula leyendo la tabla entera (son tres filas, no hace falta
+   * paginar ni ordenar). El `.select('id')` del insert pide la fila de vuelta:
+   * sin eso no habría forma de distinguir "se agregó" de "no se insertó nada".
+   */
+  crearTrabajoDeGaleria(datos: DatosDeTrabajoDeGaleria): Observable<void> {
+    return from(this.crearTrabajoDeGaleriaEnLaBase(datos));
+  }
+
+  private async crearTrabajoDeGaleriaEnLaBase(
+    datos: DatosDeTrabajoDeGaleria,
+  ): Promise<void> {
+    const { data: filas, error } = await this.supabase.from('galeria').select('orden');
+    if (error) throw new Error(`No se pudo leer el orden de los trabajos: ${error.message}`);
+
+    const filasConOrden = (filas ?? []) as Array<{ orden: number | null }>;
+    // Con la tabla vacía, el primero entra en 1 (el máximo no existe todavía).
+    const orden =
+      filasConOrden.reduce((maximo, fila) => Math.max(maximo, Number(fila.orden ?? 0)), 0) + 1;
+
+    const { data: creadas, error: errorDelInsert } = await this.supabase
+      .from('galeria')
+      .insert({
+        titulo: datos.titulo,
+        categoria: datos.categoria,
+        imagen_url: datos.imagenUrl,
+        orden,
+        activo: true,
+      })
+      .select('id');
+
+    if (errorDelInsert) {
+      throw new Error(`No se pudo agregar el trabajo: ${errorDelInsert.message}`);
+    }
+
+    // Exactamente una fila: cero significa que no se insertó, y más de una no es
+    // lo que pidió un insert de un solo trabajo.
+    if (!creadas || creadas.length !== 1) {
+      throw new Error(`No se agregó el trabajo: ${NO_ACEPTO_EL_CAMBIO}`);
+    }
+  }
+
+  /**
+   * Cambia los tres campos editables de un trabajo de la galería.
+   *
+   * El `.select('id')` no es decorativo: una política RLS de UPDATE **no lanza
+   * error**, filtra las filas en silencio y vuelve como éxito. Si no se miran
+   * las filas devueltas, el panel diría "guardado" sin haber guardado nada.
+   */
+  actualizarTrabajoDeGaleria(
+    id: number,
+    datos: DatosDeTrabajoDeGaleria,
+  ): Observable<void> {
+    return from(
+      this.supabase
+        .from('galeria')
+        .update({
+          titulo: datos.titulo,
+          categoria: datos.categoria,
+          imagen_url: datos.imagenUrl,
+        })
+        .eq('id', id)
+        .select('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo guardar el trabajo: ${error.message}`);
+        if (!data || data.length !== 1) {
+          throw new Error(`No se guardó el trabajo: ${NO_ACEPTO_EL_CAMBIO}`);
+        }
+      }),
+    );
+  }
+
+  /**
+   * Da de baja o vuelve a publicar un trabajo.
+   *
+   * Es una baja **lógica**: se cambia `activo`, nunca se borra la fila. El sitio
+   * público ya filtra los inactivos. Verifica la fila devuelta por el mismo
+   * motivo que `actualizarTrabajoDeGaleria`: un UPDATE bloqueado por RLS no avisa.
+   */
+  cambiarActivoDeTrabajoDeGaleria(id: number, activo: boolean): Observable<void> {
+    return from(
+      this.supabase.from('galeria').update({ activo }).eq('id', id).select('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo cambiar el estado del trabajo: ${error.message}`);
+        if (!data || data.length !== 1) {
+          throw new Error(`No se cambió el estado del trabajo: ${NO_ACEPTO_EL_CAMBIO}`);
+        }
       }),
     );
   }

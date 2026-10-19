@@ -78,6 +78,7 @@ describe('AdminPanelComponent', () => {
             crearServicio: () => of(void 0),
             getPeluqueros: () => of([]),
             actualizarPeluquero: () => of(void 0),
+            getTodaLaGaleria: () => of([]),
           },
         },
         { provide: TextosSitioService, useValue: { guardar: () => of(void 0) } },
@@ -245,17 +246,18 @@ describe('AdminPanelComponent', () => {
 
   });
 
-  describe('las secciones que todavía no tienen editor', () => {
-    it('Galería sigue mostrando el cartel de próximamente', () => {
+  describe('la sección Galería', () => {
+    it('muestra el editor de galería y ya no el cartel de próximamente', () => {
       const { fixture, panelVisible, pestanias, texto } = armar();
 
       pestanias()[3].click();
       fixture.detectChanges();
 
+      expect(panelVisible()[0].querySelector('app-seccion-galeria')).not.toBeNull();
       expect(panelVisible()[0].querySelector('app-seccion-textos')).toBeNull();
       expect(panelVisible()[0].querySelector('app-seccion-servicios')).toBeNull();
       expect(panelVisible()[0].querySelector('app-seccion-staff')).toBeNull();
-      expect(texto()).toContain('Llega en la próxima entrega');
+      expect(texto()).not.toContain('Llega en la próxima entrega');
     });
   });
 
