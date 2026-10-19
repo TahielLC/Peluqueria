@@ -5,7 +5,7 @@
 **Repo:** `/home/luislinx/Escritorio/projectTest` · **App:** `src/app` (Angular 22.2.3, Node 22, npm 12)
 **Runner:** Vitest + jsdom (`npm test`, 47 tests verdes al arrancar).
 **Persistencia:** **Supabase** — Postgres + Auth + Storage. Decisión del usuario (ver L2).
-**Entrega:** **PR #1 mergeada en `main`** (`0b765a6`). Slice nuevo en `feat/panel-servicios`, desde `main`.
+**Entrega:** **PR #1 (`0b765a6`) y PR #2 (`43950bb`) mergeadas en `main`.** Slice actual: `feat/panel-staff-galeria` (staff + galería), desde `main`.
 **Riesgo declarado:** items 2 (seguridad: login y credenciales), 3 (contrato de datos que consume el sitio público) y 5 (dependencia nueva + configuración de entorno).
 
 ## Specs
@@ -85,8 +85,8 @@
 | T7a | S4 | delegado (writer) | hecho — `1ce0b26` | **El sitio lee sus textos de la base**: los 10 de `textos_sitio` (hero, servicios, equipo, galería), con el valor de fábrica como respaldo del primer pintado. |
 | T7b | S4, S8 | delegado (writer) | hecho — `6546fe9` | **El editor de textos en el panel**: la pestaña Textos lista los 10 con su etiqueta y su ayuda, deja editar y guarda, con confirmación visible y error legible. |
 | T8 | S5, S8 | delegada (contexto) | hecha (`8ced0a9`) | Edición de servicios y precios. |
-| T9 | S6, S8 | delegada (contexto) | hecha (`c6b6721`) | Staff + subida de foto. |
-| T10 | S7, S8 | delegada (contexto) | hecha (`714cb04`) | Galería + subida de foto. |
+| T9 | S6, S8 | delegada (contexto) | hecha (`3b835f0`) | Staff + subida de foto. |
+| T10 | S7, S8 | delegada (contexto) | hecha (`adf669e`) | Galería + subida de foto. |
 | T11 | S8 | inline | pendiente | Manual de uso para la administradora. |
 
 ## Log
@@ -212,7 +212,7 @@
   - **El `orden` de un servicio nuevo es el máximo + 1**, así entra al final y no arriba de todo.
   - **Evidencia:** RED observado en cada etapa, 186/186 en verde, y una mutación —hacer que `actualizarServicio` ignore las filas devueltas— puso en rojo el test del caso "cero filas". `npm test`: `Test Files 16 passed (16)`, `Tests 186 passed (186)`.
   - **Assess de la rebanada** (`0b765a6..8ced0a9`): `risk: medium`, `review_due: false`, motivo `under_budget`. Se registra; no abre revisión nativa.
-- **L58** (2026-10-18) — **T9 hecho: la administradora edita los cinco campos del staff y sube la foto como archivo, nunca pegando una URL (S8).** Commit `c6b6721`. Suite **219/219** en 19 archivos (eran 186).
+- **L58** (2026-10-18) — **T9 hecho: la administradora edita los cinco campos del staff y sube la foto como archivo, nunca pegando una URL (S8).** Commit `3b835f0`. Suite **219/219** en 19 archivos (eran 186).
   - **El bucket `fotos` ya estaba en el `schema.sql`** (lectura pública, escritura sólo para administradoras): no hizo falta crear nada nuevo. **Sin verificar contra el proyecto real**: los tests usan cliente falso (A5) y la subida de verdad es prueba de navegador.
   - **La extensión del archivo sale del MIME, no del nombre.** Un `foto.png` puede ser un JPEG; con el nombre, la ruta mentiría.
   - **La validación (JPG/PNG/WebP, hasta 5 MB) vive en el selector, no en el servicio de subida**: es el único lugar donde el error se puede mostrar al lado del campo. El servicio, si falla, falla; nunca devuelve una URL vacía.
@@ -220,14 +220,17 @@
   - **La foto subida no está en el sitio hasta que se guarda la fila, y la pantalla lo dice**: "Foto lista. Acordate de guardar."
   - **`titulo` y `foto_url` vacíos se guardan como `NULL`**, no como cadena vacía: son opcionales en la base y el sitio oculta la línea del título cuando no hay.
   - **S6 no pide alta ni baja de perfiles**, así que no se agregaron. Consecuencia anotada: un perfil inactivo (`activo = false`) no se puede editar desde esta pantalla, porque `getPeluqueros()` sólo devuelve activos.
-  - **Evidencia:** RED `Test Files 5 failed | 14 passed (19)`, `Tests 33 failed | 186 passed (219)`; GREEN `Tests 219 passed (219)`; la mutación que saca el chequeo de filas de `actualizarPeluquero` puso en rojo los dos tests del caso. Assess del slice (`0b765a6..c6b6721`): `review_due: false`, `under_budget`.
-- **L59** (2026-10-19) — **T10 hecho: la galería se edita desde el panel, con alta, baja lógica y foto subida como archivo.** Commit `714cb04`. Con esto **las cuatro pestañas del panel son editores reales**: no queda ningún cartel de "próximamente". Suite **251/251** en 20 archivos (eran 219).
+  - **Evidencia:** RED `Test Files 5 failed | 14 passed (19)`, `Tests 33 failed | 186 passed (219)`; GREEN `Tests 219 passed (219)`; la mutación que saca el chequeo de filas de `actualizarPeluquero` puso en rojo los dos tests del caso. Assess del slice (`0b765a6..3b835f0`): `review_due: false`, `under_budget`.
+- **L59** (2026-10-19) — **T10 hecho: la galería se edita desde el panel, con alta, baja lógica y foto subida como archivo.** Commit `adf669e`. Con esto **las cuatro pestañas del panel son editores reales**: no queda ningún cartel de "próximamente". Suite **251/251** en 20 archivos (eran 219).
   - **La tarea se interrumpió dos veces por límite del proveedor**, una al lanzarla y otra a mitad de camino. La primera dejó escritos el modelo, el spec de 672 líneas y stubs que devolvían `of([])` / `of(void 0)`; la segunda implementó contra ese spec. El RED quedó observado de verdad: `Tests 32 failed | 219 passed (251)` antes de implementar.
   - **El alta exige foto**: un trabajo de galería sin foto no se puede mostrar, así que no se crea. La categoría es un `<select>` con las cuatro del modelo (extraídas a `CategoriaDeTrabajo`, sin cambiar el comportamiento), y el formulario de alta está **colapsado**: se destruye al cerrarse y se cierra al terminar bien, para que el selector de foto se recree limpio en vez de mostrar la foto anterior como si fuera nueva.
   - **Detalle de Angular que costó encontrar:** `[value]` sobre un `<select>` cuyas opciones crea `@for` no conserva una opción distinta de la primera en el primer render; cada `<option>` necesita `[selected]`. Está aplicado en los dos `<select>`.
   - **Las tres escrituras verifican la fila devuelta**, igual que servicios y staff.
-  - **Evidencia:** RED `Test Files 2 failed | 18 passed (20)`, `Tests 32 failed | 219 passed (251)`; GREEN `Tests 251 passed (251)`; la mutación que saca el chequeo de filas de `actualizarTrabajoDeGaleria` puso en rojo exactamente el test del caso. Assess del slice (`0b765a6..714cb04`): `medium`, `review_due: false`, `under_budget`.
+  - **Evidencia:** RED `Test Files 2 failed | 18 passed (20)`, `Tests 32 failed | 219 passed (251)`; GREEN `Tests 251 passed (251)`; la mutación que saca el chequeo de filas de `actualizarTrabajoDeGaleria` puso en rojo exactamente el test del caso. Assess del slice (`0b765a6..adf669e`): `medium`, `review_due: false`, `under_budget`.
   - **Lo que sigue sin verificar, y es lo importante:** la subida real de archivos al bucket `fotos` y sus políticas de Storage. La suite usa cliente falso (A5); la prueba es en el navegador: subir una foto de staff y una de galería, guardar, recargar y verlas en el sitio.
+- **L60** (2026-10-19) — **La PR #2 ya estaba mergeada con T8 cuando fui a pushear T9 y T10, y no lo verifiqué.** Consecuencia: los commits de T9/T10 quedaron en una rama cuya PR había cerrado, y edité el título y el cuerpo de una PR mergeada describiendo cambios que no contenía. Las dos cosas se corrigieron: la PR #2 recuperó su contenido de T8, y T9/T10 se cherry-piquearon a `feat/panel-staff-galeria` desde `main`. Los hashes citados cambiaron (T9 = `3b835f0`, T10 = `adf669e`); la rama remota `feat/panel-servicios` quedó con esos cuatro commits sueltos, sin PR, y no la borré porque borrar una rama remota no es una decisión que me corresponda.
+  - **Lección de método:** antes de pushear a una rama hay que mirar el estado de su PR (`gh pr view`). Dar por abierta una PR que el usuario pudo mergear no es un detalle: cambia dónde caen los commits.
+
 
 
 
