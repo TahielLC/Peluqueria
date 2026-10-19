@@ -3,13 +3,14 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { SeccionTextosComponent } from '../seccion-textos/seccion-textos.component';
 import { SeccionServiciosComponent } from '../seccion-servicios/seccion-servicios.component';
+import { SeccionStaffComponent } from '../seccion-staff/seccion-staff.component';
+import { SeccionGaleriaComponent } from '../seccion-galeria/seccion-galeria.component';
 
 /** Textos fijos del panel. */
 const MENSAJES = {
   titulo: 'Panel de administración',
   cerrarSesion: 'Cerrar sesión',
   secciones: 'Secciones del panel',
-  proximamente: 'Acá vas a poder editar esta parte del sitio. Llega en la próxima entrega.',
   // Un solo aviso para los dos fallos, y por eso está redactado como posibilidad
   // y no como hecho: hay una rama en la que no se pudo averiguar si la sesión
   // quedó abierta, y ahí afirmarlo sería mentir. Ver `intentarSalir`.
@@ -74,7 +75,12 @@ export type IdSeccion = (typeof SECCIONES)[number]['id'];
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [SeccionTextosComponent, SeccionServiciosComponent],
+  imports: [
+    SeccionTextosComponent,
+    SeccionServiciosComponent,
+    SeccionStaffComponent,
+    SeccionGaleriaComponent,
+  ],
   template: `
     <section class="min-h-screen bg-gray-100">
       <header class="bg-white border-b border-gray-200">
@@ -131,10 +137,10 @@ export type IdSeccion = (typeof SECCIONES)[number]['id'];
                 <app-seccion-textos />
               } @else if (seccion.id === 'servicios') {
                 <app-seccion-servicios />
-              } @else {
-                <p class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-400">
-                  {{ mensajes.proximamente }}
-                </p>
+              } @else if (seccion.id === 'equipo') {
+                <app-seccion-staff />
+              } @else if (seccion.id === 'galeria') {
+                <app-seccion-galeria />
               }
             </section>
           }
