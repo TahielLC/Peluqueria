@@ -111,7 +111,9 @@ Cada persona del salón tiene: **Nombre**, **Rol**, **Trayectoria**, **Título**
 - La foto se cambia con **Cambiar foto** (o **Sin foto**, si todavía no tiene).
 - Cada persona se guarda con su propio **Guardar**.
 
-Las personas **no se agregan ni se quitan desde el panel**: si entra o se va alguien del equipo, eso se pide a quien mantiene el sitio.
+**Agregar a alguien:** apretá **Agregar una persona**, completá Nombre, Rol, Trayectoria y Título, subí la foto y apretá **Agregar**. *"La persona nueva queda al final de la lista."* Si cambiás de idea, **Cancelar** cierra el formulario sin guardar nada. La foto es obligatoria: la tarjeta del equipo muestra una imagen y sin foto quedaría rota.
+
+**Que alguien deje de aparecer:** **Dar de baja**. Igual que en la galería, no se borra: deja de verse en el sitio y en el panel queda apagado, con **Dado de baja**. Si vuelve, **Volver a publicar** lo restaura tal como estaba.
 
 ---
 
@@ -183,7 +185,6 @@ Consejos para que quede bien:
 Para que no lo busques donde no está:
 
 - **Turnos.** El botón de reservar del sitio todavía no guarda turnos ni manda avisos. Los turnos se siguen tomando como siempre: por WhatsApp, por teléfono o en el cuaderno.
-- **Personas del equipo.** No se agregan ni se quitan desde el panel.
 - **Contraseña.** No se cambia desde el panel.
 - **Varias cuentas.** Hay una sola cuenta del salón. Si trabajan varias personas, comparten esa cuenta: lo que cambia una, lo ven las demás.
 
