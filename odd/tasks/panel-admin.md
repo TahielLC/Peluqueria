@@ -95,7 +95,7 @@
 | T8 | S5, S8 | delegada (contexto) | hecha (`8ced0a9`) | Edición de servicios y precios. |
 | T9 | S6, S8 | delegada (contexto) | hecha (`3b835f0`) | Staff + subida de foto. |
 | T10 | S7, S8 | delegada (contexto) | hecha (`adf669e`) | Galería + subida de foto. |
-| T11 | S12 | inline | pendiente | Manual de uso para la administradora, aparte y sin código. |
+| T11 | S12 | inline | hecha (`6ff2ad0`) | Manual en `docs/manual-administradora.md`, aparte y sin código. |
 | T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
 
 ## Log
@@ -269,3 +269,7 @@
   - **Decisión:** un archivo `docs/manual-administradora.md`, en castellano y sin jerga. No una página de ayuda dentro del panel: eso sería una ruta, una UI y tests nuevos para un texto que cambia poco y que la administradora no va a leer dentro de la app.
   - **Qué manda el documento:** cómo entrar, qué hace cada pestaña con las etiquetas reales de la pantalla, cómo se guardan los cambios, cómo se suben y se encuadran las fotos, qué significan los errores y **qué no hace todavía el panel** (turnos, altas y bajas del equipo, contraseña, varias cuentas).
   - **Qué no manda:** credenciales. El manual dice "el correo y la contraseña de la cuenta del salón" y nunca escribe una cuenta real.
+- **L65** (2026-10-19) — **T11 hecho** (`6ff2ad0`): `docs/manual-administradora.md`, doce secciones en castellano llano, sin una sola palabra del oficio.
+  - **Qué cubre:** qué es el panel, cómo entrar (y los tres mensajes de error del ingreso), las cuatro pestañas, la regla de guardar, los 10 textos con su etiqueta real, servicios y precios, equipo, galería, el encuadre de fotos con sus consejos, qué hacer ante un error, **lo que el panel todavía no hace** (turnos, altas y bajas del equipo, contraseña, varias cuentas) y un glosario de cinco palabras.
+  - **Verificación (estructural, la que corresponde a un documento):** se extrajeron del manual las **21 frases entrecomilladas** y las **33 etiquetas** que menciona, y se buscaron literales en `src/app` y `supabase/schema.sql`: las 21 y las 33 existen tal cual. No hay ninguna promesa de una función inexistente; en particular, el manual dice explícitamente que el botón de reservar no guarda turnos.
+  - **Credenciales:** el manual nunca escribe una cuenta real. Dice "el correo y la contraseña de la cuenta del salón" y la dirección se ejemplifica con un dominio inventado.
