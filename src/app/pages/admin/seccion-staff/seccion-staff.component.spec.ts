@@ -6,31 +6,41 @@ import { SeccionStaffComponent } from './seccion-staff.component';
 import { AppointmentService } from '../../../services/appointment.service';
 import { SubidaDeFotosService } from '../../../services/subida-de-fotos.service';
 import { RecortadorDeFotoComponent } from '../../../components/recortador-de-foto/recortador-de-foto.component';
-import { DatosDePeluquero, Peluquero } from '../../../models/appointment.model';
+import { DatosDePeluquero, PeluqueroAdministrable } from '../../../models/appointment.model';
 import { MENSAJES } from '../../../components/estados';
 
-const SOFIA: Peluquero = {
+/**
+ * Perfiles de prueba con la forma que devuelve la base.
+ *
+ * Hay uno activo y uno dado de baja a propósito: la pantalla tiene que mostrar
+ * los dos y ofrecer una acción distinta para cada uno.
+ */
+const SOFIA: PeluqueroAdministrable = {
   id: 1,
   nombre: 'Sofía Martínez',
   rol: 'Colorimetría',
   experiencia: 'Arrancó en 2020 y se especializó en color.',
   titulo: 'Tecnicatura (2021)',
   fotoUrl: 'https://fotos.test/sofia.jpg',
+  activo: true,
 };
 
-const LUCAS: Peluquero = {
+const LUCAS: PeluqueroAdministrable = {
   id: 2,
   nombre: 'Lucas Pérez',
   rol: 'Fade',
   experiencia: 'Trabaja desde 2022.',
   fotoUrl: 'https://fotos.test/lucas.jpg',
+  activo: false,
 };
 
 const PERFILES = [SOFIA, LUCAS];
 
 interface Opciones {
-  consultar?: () => Observable<Peluquero[]>;
+  consultar?: () => Observable<PeluqueroAdministrable[]>;
   actualizar?: () => Observable<void>;
+  cambiarActivo?: () => Observable<void>;
+  crear?: () => Observable<void>;
 }
 
 interface Actualizacion {
@@ -38,10 +48,17 @@ interface Actualizacion {
   datos: DatosDePeluquero;
 }
 
+interface CambioDeActivo {
+  id: number;
+  activo: boolean;
+}
+
 /** Arma el editor con perfiles falsos y registra lo que se le pide. */
 function armar(opciones: Opciones = {}) {
   const consultar = opciones.consultar ?? (() => of(PERFILES));
   const actualizaciones: Actualizacion[] = [];
+  const cambiosDeActivo: CambioDeActivo[] = [];
+  const creados: DatosDePeluquero[] = [];
   let consultas = 0;
 
   TestBed.resetTestingModule();
@@ -50,7 +67,7 @@ function armar(opciones: Opciones = {}) {
       {
         provide: AppointmentService,
         useValue: {
-          getPeluqueros: () => {
+          getTodosLosPeluqueros: () => {
             consultas += 1;
             return consultar();
           },
@@ -58,11 +75,19 @@ function armar(opciones: Opciones = {}) {
             actualizaciones.push({ id, datos });
             return (opciones.actualizar ?? (() => of(void 0)))();
           },
+          cambiarActivoDePeluquero: (id: number, activo: boolean) => {
+            cambiosDeActivo.push({ id, activo });
+            return (opciones.cambiarActivo ?? (() => of(void 0)))();
+          },
+          crearPeluquero: (datos: DatosDePeluquero) => {
+            creados.push(datos);
+            return (opciones.crear ?? (() => of(void 0)))();
+          },
         },
       },
       {
-        // El selector de foto es real y se monta en cada fila. Sólo se dobla la
-        // subida, para no salir a la red.
+        // El selector de foto es real y se monta en cada fila y en el alta. Sólo
+        // se dobla la subida, para no salir a la red.
         provide: SubidaDeFotosService,
         useValue: {
           subirFoto: () => of('https://fotos.test/nueva.jpg'),
@@ -144,16 +169,75 @@ function armar(opciones: Opciones = {}) {
     confirmarRecorte();
   };
 
+  /** Busca un botón por su texto y falla con un mensaje claro si no está. */
+  const botonCon = (raiz: ParentNode, texto: string): HTMLButtonElement => {
+    const boton = Array.from(raiz.querySelectorAll('button')).find((candidato) =>
+      candidato.textContent?.includes(texto),
+    ) as HTMLButtonElement | undefined;
+
+    if (!boton) throw new Error(`No hay ningún botón que diga "${texto}"`);
+    return boton;
+  };
+
+  const seccionAlta = () =>
+    fixture.nativeElement.querySelector(
+      'section[aria-label="Agregar una persona"]',
+    ) as HTMLElement | null;
+
+  /** Abre el formulario de alta. */
+  const abrirAlta = () => {
+    botonCon(fixture.nativeElement, 'Agregar una persona').click();
+    fixture.detectChanges();
+  };
+
+  const nuevoCampo = (nombre: 'nombre' | 'rol' | 'experiencia' | 'titulo') => {
+    const encontrado = fixture.nativeElement.querySelector(
+      `#nueva-persona-${nombre}`,
+    ) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!encontrado) throw new Error(`No existe el campo de alta "${nombre}"`);
+    return encontrado;
+  };
+
+  const botonAgregar = () => {
+    const seccion = seccionAlta();
+    if (!seccion) throw new Error('No está el formulario de alta');
+    return botonCon(seccion, 'Agregar');
+  };
+
+  /** Elige la foto del formulario de alta, a través del selector real. */
+  const elegirFotoNueva = () => {
+    const seccion = seccionAlta();
+    const entrada = seccion?.querySelector('input[type="file"]') as HTMLInputElement | null;
+    if (!entrada) throw new Error('No hay selector de foto en el alta');
+
+    Object.defineProperty(entrada, 'files', {
+      value: [new File(['x'], 'foto.jpg', { type: 'image/jpeg' })],
+      configurable: true,
+    });
+    entrada.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    confirmarRecorte();
+  };
+
   return {
     component: fixture.componentInstance,
     fixture,
     actualizaciones,
+    cambiosDeActivo,
+    creados,
     consultas: () => consultas,
     filas,
     campo,
     experiencia,
     botonGuardar,
+    botonDe: (fila: HTMLElement, texto: string) => botonCon(fila, texto),
     elegirFoto,
+    seccionAlta,
+    abrirAlta,
+    nuevoCampo,
+    botonAgregar,
+    elegirFotoNueva,
     /** Lo que la persona realmente ve. */
     texto: () => (fixture.nativeElement.textContent as string).replace(/\s+/g, ' '),
   };
@@ -192,9 +276,9 @@ describe('SeccionStaffComponent', () => {
       // La ayuda explica qué pasa si el título queda vacío.
       expect(texto()).toContain('Si lo dejás vacío, no se muestra en el sitio');
 
-      // S6 no pide alta ni baja de perfiles: la pantalla no las ofrece.
-      expect(texto()).not.toContain('Agregar perfil');
-      expect(texto()).not.toContain('Dar de baja');
+      // La persona se administra desde esta misma pantalla: hay alta y baja.
+      expect(texto()).toContain('Agregar una persona');
+      expect(texto()).toContain('Dar de baja');
     });
 
     it('arranca sin cambios pendientes y con guardar deshabilitado en cada fila', () => {
@@ -312,9 +396,165 @@ describe('SeccionStaffComponent', () => {
     });
   });
 
+  describe('dar de baja y volver a publicar', () => {
+    it('lista los perfiles dados de baja apagados y con la acción de volver a publicar', () => {
+      const { filas, botonDe } = armar();
+
+      expect(filas()).toHaveLength(2);
+
+      expect(filas()[1].className).toContain('opacity-60');
+      expect(filas()[1].textContent).toContain('Dado de baja');
+      expect(filas()[0].className).not.toContain('opacity-60');
+      expect(filas()[0].textContent).not.toContain('Dado de baja');
+
+      expect(botonDe(filas()[0], 'Dar de baja')).toBeDefined();
+      expect(botonDe(filas()[1], 'Volver a publicar')).toBeDefined();
+    });
+
+    it('dar de baja manda activo en false y deja la fila apagada con volver a publicar', () => {
+      const { filas, botonDe, cambiosDeActivo, fixture } = armar();
+
+      botonDe(filas()[0], 'Dar de baja').click();
+      fixture.detectChanges();
+
+      expect(cambiosDeActivo).toEqual([{ id: 1, activo: false }]);
+
+      expect(filas()[0].className).toContain('opacity-60');
+      expect(filas()[0].textContent).toContain('Dado de baja');
+      expect(filas()[0].textContent).toContain('Dado de baja. Ya no se ve en el sitio.');
+      expect(botonDe(filas()[0], 'Volver a publicar')).toBeDefined();
+    });
+
+    it('volver a publicar manda activo en true y vuelve a ofrecer la baja', () => {
+      const { filas, botonDe, cambiosDeActivo, fixture } = armar();
+
+      botonDe(filas()[1], 'Volver a publicar').click();
+      fixture.detectChanges();
+
+      expect(cambiosDeActivo).toEqual([{ id: 2, activo: true }]);
+
+      expect(filas()[1].className).not.toContain('opacity-60');
+      expect(filas()[1].textContent).not.toContain('Dado de baja');
+      expect(filas()[1].textContent).toContain('Publicado. Ya se ve en el sitio.');
+      expect(botonDe(filas()[1], 'Dar de baja')).toBeDefined();
+    });
+  });
+
+  describe('agregar una persona', () => {
+    it('crea con los datos elegidos, recarga la lista y deja la persona al final', () => {
+      const lista = [...PERFILES];
+      const {
+        abrirAlta,
+        nuevoCampo,
+        botonAgregar,
+        elegirFotoNueva,
+        creados,
+        consultas,
+        seccionAlta,
+        filas,
+        fixture,
+        texto,
+      } = armar({
+        consultar: () => of(lista),
+        crear: () => {
+          lista.push({
+            id: 3,
+            nombre: 'Martina López',
+            rol: 'Corte y color',
+            experiencia: 'Trabaja desde 2019.',
+            titulo: 'Tecnicatura (2020)',
+            fotoUrl: 'https://fotos.test/nueva.jpg',
+            activo: true,
+          });
+          return of(void 0);
+        },
+      });
+
+      abrirAlta();
+
+      escribir(nuevoCampo('nombre'), 'Martina López');
+      escribir(nuevoCampo('rol'), 'Corte y color');
+      escribir(nuevoCampo('experiencia'), 'Trabaja desde 2019.');
+      escribir(nuevoCampo('titulo'), 'Tecnicatura (2020)');
+      elegirFotoNueva();
+      fixture.detectChanges();
+
+      expect(consultas()).toBe(1);
+
+      botonAgregar().click();
+      fixture.detectChanges();
+
+      expect(creados).toEqual([
+        {
+          nombre: 'Martina López',
+          rol: 'Corte y color',
+          experiencia: 'Trabaja desde 2019.',
+          titulo: 'Tecnicatura (2020)',
+          fotoUrl: 'https://fotos.test/nueva.jpg',
+        },
+      ]);
+
+      // Recarga la lista para que la persona nueva aparezca.
+      expect(consultas()).toBe(2);
+      expect(texto()).toContain('Persona agregada. Ya se ve en el sitio.');
+
+      // El formulario se destruye al terminar bien: así el selector de foto se
+      // recrea limpio y no queda mostrando la foto anterior como si fuera nueva.
+      expect(seccionAlta()).toBeNull();
+
+      // La persona nueva queda al final de la lista.
+      expect(filas()).toHaveLength(3);
+      expect(filas()[2].textContent).toContain('Martina López');
+    });
+
+    it('no crea una persona sin foto aunque el nombre esté completo', () => {
+      const { abrirAlta, nuevoCampo, botonAgregar, creados, fixture, texto } = armar();
+
+      abrirAlta();
+      escribir(nuevoCampo('nombre'), 'Martina López');
+      fixture.detectChanges();
+
+      botonAgregar().click();
+      fixture.detectChanges();
+
+      expect(creados).toEqual([]);
+      expect(texto()).toContain('Subí una foto para la persona.');
+      expect(texto()).not.toContain('Escribí un nombre para la persona.');
+    });
+
+    it('no crea una persona sin nombre aunque la foto esté elegida', () => {
+      const { abrirAlta, botonAgregar, elegirFotoNueva, creados, fixture, texto } = armar();
+
+      abrirAlta();
+      elegirFotoNueva();
+
+      botonAgregar().click();
+      fixture.detectChanges();
+
+      expect(creados).toEqual([]);
+      expect(texto()).toContain('Escribí un nombre para la persona.');
+      expect(texto()).not.toContain('Subí una foto para la persona.');
+    });
+
+    it('cancelar cierra el formulario sin crear ni recargar', () => {
+      const { abrirAlta, botonDe, creados, consultas, seccionAlta, fixture } = armar();
+
+      abrirAlta();
+      const seccion = seccionAlta();
+      if (!seccion) throw new Error('No se abrió el formulario de alta');
+
+      botonDe(seccion, 'Cancelar').click();
+      fixture.detectChanges();
+
+      expect(creados).toEqual([]);
+      expect(consultas()).toBe(1);
+      expect(seccionAlta()).toBeNull();
+    });
+  });
+
   describe('estados de carga, error y vacío', () => {
     it('mientras la lista está en camino avisa que está cargando y no muestra filas', () => {
-      const enCamino = new Subject<Peluquero[]>();
+      const enCamino = new Subject<PeluqueroAdministrable[]>();
       const { texto, filas, fixture } = armar({ consultar: () => enCamino });
 
       expect(texto()).toContain(MENSAJES.cargando);
@@ -344,7 +584,9 @@ describe('SeccionStaffComponent', () => {
     });
 
     it('el botón de reintentar vuelve a pedir los perfiles y esta vez los muestra', () => {
-      let respuesta: Observable<Peluquero[]> = throwError(() => new Error('sin red'));
+      let respuesta: Observable<PeluqueroAdministrable[]> = throwError(
+        () => new Error('sin red'),
+      );
       const { texto, filas, fixture } = armar({ consultar: () => respuesta });
 
       expect(texto()).toContain(MENSAJES.errorAlCargar);

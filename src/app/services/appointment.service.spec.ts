@@ -547,6 +547,196 @@ describe('AppointmentService', () => {
     });
   });
 
+  describe('getTodosLosPeluqueros', () => {
+    it('trae también los inactivos, con su estado, y pide el orden del panel', async () => {
+      const { service, consultas } = armar({
+        peluqueros: {
+          data: [
+            {
+              id: 1,
+              nombre: 'Sofía Martínez',
+              rol: 'Colorimetría',
+              experiencia: 'Arrancó en 2020.',
+              titulo: 'Tecnicatura (2021)',
+              foto_url: 'https://fotos.test/sofia.jpg',
+              activo: true,
+            },
+            {
+              id: 2,
+              nombre: 'Lucas Pérez',
+              rol: 'Fade',
+              experiencia: 'Trabaja desde 2022.',
+              titulo: null,
+              foto_url: null,
+              activo: false,
+            },
+          ],
+          error: null,
+        },
+      });
+
+      const peluqueros = await firstValueFrom(service.getTodosLosPeluqueros());
+
+      expect(peluqueros).toEqual([
+        {
+          id: 1,
+          nombre: 'Sofía Martínez',
+          rol: 'Colorimetría',
+          experiencia: 'Arrancó en 2020.',
+          titulo: 'Tecnicatura (2021)',
+          fotoUrl: 'https://fotos.test/sofia.jpg',
+          activo: true,
+        },
+        {
+          id: 2,
+          nombre: 'Lucas Pérez',
+          rol: 'Fade',
+          experiencia: 'Trabaja desde 2022.',
+          titulo: undefined,
+          fotoUrl: '',
+          activo: false,
+        },
+      ]);
+
+      expect(consultas[0].tabla).toBe('peluqueros');
+      // Sin filtro de activo: el panel necesita ver también lo dado de baja para
+      // poder volver a publicarlo.
+      expect(consultas[0].filtros).toEqual([]);
+      expect(consultas[0].orden).toEqual(['orden', 'id']);
+      expect(consultas[0].columnas).toContain('activo');
+    });
+
+    it('si Supabase falla, el Observable falla', async () => {
+      const { service } = armar({
+        peluqueros: { data: null, error: { message: 'sin red' } },
+      });
+
+      await expect(firstValueFrom(service.getTodosLosPeluqueros())).rejects.toThrow(
+        /perfiles.*sin red/,
+      );
+    });
+  });
+
+  describe('crearPeluquero', () => {
+    const DATOS: DatosDePeluquero = {
+      nombre: 'Martina López',
+      rol: 'Corte y color',
+      experiencia: 'Trabaja desde 2019.',
+      titulo: 'Tecnicatura (2020)',
+      fotoUrl: 'https://fotos.test/martina.jpg',
+    };
+
+    it('calcula el orden como el máximo + 1 e inserta activo con los nombres de la base', async () => {
+      const { service, consultas } = armar({
+        peluqueros: [
+          // Primero la lectura del orden de toda la tabla, después la fila nueva.
+          { data: [{ orden: 0 }, { orden: 4 }, { orden: 2 }], error: null },
+          { data: [{ id: 9 }], error: null },
+        ],
+      });
+
+      await firstValueFrom(service.crearPeluquero(DATOS));
+
+      expect(consultas).toHaveLength(2);
+
+      // La lectura del orden es de toda la tabla: sin filtro ni orden, a
+      // propósito. Es una tabla de tres filas, no hace falta paginar.
+      expect(consultas[0].columnas).toBe('orden');
+      expect(consultas[0].filtros).toEqual([]);
+      expect(consultas[0].orden).toEqual([]);
+
+      expect(consultas[1].insercion).toEqual({
+        nombre: 'Martina López',
+        rol: 'Corte y color',
+        experiencia: 'Trabaja desde 2019.',
+        titulo: 'Tecnicatura (2020)',
+        foto_url: 'https://fotos.test/martina.jpg',
+        orden: 5,
+        activo: true,
+      });
+      expect(consultas[1].columnas).toBe('id');
+    });
+
+    it('guarda el título y la foto vacíos como NULL, no como cadena vacía', async () => {
+      const { service, consultas } = armar({
+        peluqueros: [
+          { data: [{ orden: 1 }], error: null },
+          { data: [{ id: 9 }], error: null },
+        ],
+      });
+
+      await firstValueFrom(
+        service.crearPeluquero({ ...DATOS, titulo: '', fotoUrl: '' }),
+      );
+
+      expect(consultas[1].insercion).toMatchObject({
+        titulo: null,
+        foto_url: null,
+        orden: 2,
+        activo: true,
+      });
+    });
+
+    it('si la base no devuelve la fila insertada, FALLA en vez de decir que agregó', async () => {
+      const { service } = armar({
+        peluqueros: [
+          { data: [], error: null },
+          { data: [], error: null },
+        ],
+      });
+
+      await expect(firstValueFrom(service.crearPeluquero(DATOS))).rejects.toThrow(
+        /No se agregó el perfil.*no aceptó el cambio/,
+      );
+    });
+
+    it('si el insert devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        peluqueros: [
+          { data: [], error: null },
+          { data: null, error: { message: 'row-level security policy' } },
+        ],
+      });
+
+      await expect(firstValueFrom(service.crearPeluquero(DATOS))).rejects.toThrow(
+        /agregar el perfil.*row-level security/,
+      );
+    });
+  });
+
+  describe('cambiarActivoDePeluquero', () => {
+    it('manda el estado nuevo y filtra por id', async () => {
+      const { service, consultas } = armar({
+        peluqueros: { data: [{ id: 3 }], error: null },
+      });
+
+      await firstValueFrom(service.cambiarActivoDePeluquero(3, false));
+
+      expect(consultas[0].tabla).toBe('peluqueros');
+      expect(consultas[0].cambios).toEqual({ activo: false });
+      expect(consultas[0].filtros).toEqual([['id', 3]]);
+      expect(consultas[0].columnas).toBe('id');
+    });
+
+    it('si la base no actualiza ninguna fila, FALLA en vez de decir que cambió', async () => {
+      const { service } = armar({ peluqueros: { data: [], error: null } });
+
+      await expect(
+        firstValueFrom(service.cambiarActivoDePeluquero(3, false)),
+      ).rejects.toThrow(/No se cambió el estado del perfil.*no aceptó el cambio/);
+    });
+
+    it('si Supabase devuelve error, el Observable falla con ese motivo', async () => {
+      const { service } = armar({
+        peluqueros: { data: null, error: { message: 'sin red' } },
+      });
+
+      await expect(
+        firstValueFrom(service.cambiarActivoDePeluquero(3, false)),
+      ).rejects.toThrow(/cambiar el estado del perfil.*sin red/);
+    });
+  });
+
   describe('getGaleria', () => {
     it('traduce las columnas de la galería al modelo', async () => {
       const { service } = armar({

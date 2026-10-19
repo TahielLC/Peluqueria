@@ -5,6 +5,7 @@ import {
   DatosDePeluquero,
   DatosDeServicio,
   Peluquero,
+  PeluqueroAdministrable,
   Servicio,
   ServicioAdministrable,
   Turno,
@@ -44,6 +45,11 @@ interface FilaPeluquero {
   experiencia: string;
   titulo: string | null;
   foto_url: string | null;
+}
+
+/** Igual que `FilaPeluquero`, más el estado que sólo necesita el panel. */
+interface FilaPeluqueroAdministrable extends FilaPeluquero {
+  activo: boolean;
 }
 
 interface FilaGaleria {
@@ -100,6 +106,15 @@ function aPeluquero(fila: FilaPeluquero): Peluquero {
     // decide no mostrar esa línea cuando el campo no está.
     titulo: fila.titulo ?? undefined,
     fotoUrl: fila.foto_url ?? '',
+  };
+}
+
+function aPeluqueroAdministrable(fila: FilaPeluqueroAdministrable): PeluqueroAdministrable {
+  return {
+    ...aPeluquero(fila),
+    // La columna es `not null default true` en la base, así que acá siempre
+    // llega un booleano; el `=== true` no adivina un estado.
+    activo: fila.activo === true,
   };
 }
 
@@ -310,6 +325,28 @@ export class AppointmentService {
   }
 
   /**
+   * Los perfiles tal como los necesita el panel: **activos e inactivos**.
+   *
+   * No lleva `.eq('activo', true)` a propósito. Si el panel sólo viera los
+   * activos, una baja por error sería irreversible desde la pantalla, que es
+   * justo lo que hay que evitar con alguien que no sabe de apps.
+   */
+  getTodosLosPeluqueros(): Observable<PeluqueroAdministrable[]> {
+    return from(
+      this.supabase
+        .from('peluqueros')
+        .select('id, nombre, rol, experiencia, titulo, foto_url, activo')
+        .order('orden')
+        .order('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudieron leer los perfiles: ${error.message}`);
+        return ((data ?? []) as FilaPeluqueroAdministrable[]).map(aPeluqueroAdministrable);
+      }),
+    );
+  }
+
+  /**
    * Cambia los cinco campos editables de un perfil del staff.
    *
    * `titulo` y `foto_url` son opcionales en la base: se guardan como NULL cuando
@@ -341,6 +378,75 @@ export class AppointmentService {
         if (error) throw new Error(`No se pudo guardar el perfil: ${error.message}`);
         if (!data || data.length !== 1) {
           throw new Error(`No se guardó el perfil: ${NO_ACEPTO_EL_CAMBIO}`);
+        }
+      }),
+    );
+  }
+
+  /**
+   * Agrega un perfil al final del orden actual.
+   *
+   * El `orden` se calcula leyendo la tabla entera (son tres filas, no hace falta
+   * paginar ni ordenar). El `.select('id')` del insert pide la fila de vuelta:
+   * sin eso no habría forma de distinguir "se agregó" de "no se insertó nada".
+   */
+  crearPeluquero(datos: DatosDePeluquero): Observable<void> {
+    return from(this.crearPeluqueroEnLaBase(datos));
+  }
+
+  private async crearPeluqueroEnLaBase(datos: DatosDePeluquero): Promise<void> {
+    const { data: filas, error } = await this.supabase.from('peluqueros').select('orden');
+    if (error) throw new Error(`No se pudo leer el orden de los perfiles: ${error.message}`);
+
+    const filasConOrden = (filas ?? []) as Array<{ orden: number | null }>;
+    // Con la tabla vacía, el primero entra en 1 (el máximo no existe todavía).
+    const orden =
+      filasConOrden.reduce((maximo, fila) => Math.max(maximo, Number(fila.orden ?? 0)), 0) + 1;
+
+    const titulo = datos.titulo.trim();
+    const fotoUrl = datos.fotoUrl.trim();
+
+    const { data: creadas, error: errorDelInsert } = await this.supabase
+      .from('peluqueros')
+      .insert({
+        nombre: datos.nombre,
+        rol: datos.rol,
+        experiencia: datos.experiencia,
+        // Opcionales en la base: vacío es "sin título" y "sin foto", no una
+        // cadena vacía que el sitio mostraría como una línea en blanco.
+        titulo: titulo === '' ? null : titulo,
+        foto_url: fotoUrl === '' ? null : fotoUrl,
+        orden,
+        activo: true,
+      })
+      .select('id');
+
+    if (errorDelInsert) {
+      throw new Error(`No se pudo agregar el perfil: ${errorDelInsert.message}`);
+    }
+
+    // Exactamente una fila: cero significa que no se insertó, y más de una no es
+    // lo que pidió un insert de un solo perfil.
+    if (!creadas || creadas.length !== 1) {
+      throw new Error(`No se agregó el perfil: ${NO_ACEPTO_EL_CAMBIO}`);
+    }
+  }
+
+  /**
+   * Da de baja o vuelve a publicar un perfil.
+   *
+   * Es una baja **lógica**: se cambia `activo`, nunca se borra la fila. El sitio
+   * público ya filtra los inactivos. Verifica la fila devuelta por el mismo
+   * motivo que `actualizarPeluquero`: un UPDATE bloqueado por RLS no avisa.
+   */
+  cambiarActivoDePeluquero(id: number, activo: boolean): Observable<void> {
+    return from(
+      this.supabase.from('peluqueros').update({ activo }).eq('id', id).select('id'),
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw new Error(`No se pudo cambiar el estado del perfil: ${error.message}`);
+        if (!data || data.length !== 1) {
+          throw new Error(`No se cambió el estado del perfil: ${NO_ACEPTO_EL_CAMBIO}`);
         }
       }),
     );

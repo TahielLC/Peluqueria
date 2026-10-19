@@ -40,6 +40,14 @@ export interface Peluquero {
   fotoUrl: string;
 }
 
+/**
+ * Un perfil tal como lo necesita el panel: además de lo que se edita, si está
+ * publicado. El sitio público no usa este tipo porque sólo ve los activos.
+ */
+export interface PeluqueroAdministrable extends Peluquero {
+  activo: boolean;
+}
+
 /** Lo que la administradora edita de un perfil. El orden no se edita desde acá. */
 export interface DatosDePeluquero {
   nombre: string;
