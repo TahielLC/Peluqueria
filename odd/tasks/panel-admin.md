@@ -101,7 +101,7 @@
 | T10 | S7, S8 | delegada (contexto) | hecha (`adf669e`) | Galería + subida de foto. |
 | T11 | S12 | inline | hecha (`6ff2ad0`) | Manual en `docs/manual-administradora.md`, aparte y sin código. |
 | T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
-| T13 | S13, S6 | delegada (contexto) | pendiente | Alta y baja del equipo, igual que la galería. |
+| T13 | S13, S6 | delegada (contexto) | hecha (`df363ef`) | Alta y baja del equipo, igual que la galería. |
 
 ## Log
 
@@ -283,3 +283,10 @@
   - **La foto es obligatoria al crear**: la tarjeta del equipo muestra una imagen y sin foto quedaría rota. Es la misma regla que ya tiene la galería, y la fila nueva no se publica hasta tener foto.
   - **`getPeluqueros()` público no cambia** (ya filtra `activo = true`); se agregan los métodos de panel, como se hizo con servicios y galería. Toda escritura sigue verificando la fila devuelta.
   - **`orden = max + 1`** para que la persona nueva quede al final, igual que en servicios y galería.
+- **L67** (2026-10-19) — **T13 hecho.** Alta y baja del equipo, copiando el patrón de la galería.
+  - **Qué se agregó:** `PeluqueroAdministrable` en el modelo; `getTodosLosPeluqueros` (sin filtro de `activo`), `crearPeluquero` (`orden = max + 1`, `titulo`/`foto_url` vacíos → `NULL`, verificación de una fila) y `cambiarActivoDePeluquero` en el servicio; en el editor, alta colapsada con destrucción al cerrar, filas inactivas apagadas con "Dado de baja" y "Volver a publicar". El sitio público no se tocó.
+  - **RED observado:** la suite no compiló (`TS2339: Property 'getTodosLosPeluqueros' does not exist…`, `TS2304: Cannot find name 'Peluquero'`), que es el rojo correcto para una API que todavía no existe. Después apareció un rojo conductual real: `getTodosLosPeluqueros is not a function` en `panel.component.spec.ts` (1 failed / 290), porque el panel monta el editor de Equipo y su stub no tenía el método nuevo.
+  - **Desvío de superficie, aceptado:** el worker tocó `panel.component.spec.ts` (una línea: `getTodosLosPeluqueros: () => of([])`) fuera de la lista declarada. No es scope nuevo: es el stub que el contenedor necesita para montar el hijo. Se acepta y se deja anotado.
+  - **Un test viejo cambió de sentido:** el que afirmaba que el Equipo no tiene alta ni baja (S6) se actualizó a S13. No es un test debilitado: es una spec reemplazada por una decisión del usuario.
+  - **Verificación:** `Tests 291 passed (291)` en 22 archivos. Mutación: sacar el chequeo de filas en `cambiarActivoDePeluquero` pone rojo `si la base no actualiza ninguna fila, FALLA en vez de decir que cambió` (1 failed / 290); restaurado → 291/291.
+  - **Pendiente de prueba real:** agregar una persona con foto desde el navegador, verla en el sitio, darla de baja, comprobar que desaparece y volver a publicarla. La suite usa cliente falso y no prueba la base real.
