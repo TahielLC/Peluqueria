@@ -92,7 +92,7 @@
 | T9 | S6, S8 | delegada (contexto) | hecha (`3b835f0`) | Staff + subida de foto. |
 | T10 | S7, S8 | delegada (contexto) | hecha (`adf669e`) | Galería + subida de foto. |
 | T11 | S8 | inline | pendiente | Manual de uso para la administradora. |
-| T12 | S11, S8 | delegada (contexto) | pendiente | Encuadre de la foto antes de subirla (recorte 4:5). |
+| T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
 
 ## Log
 
@@ -251,3 +251,10 @@
 
 
 
+- **L62** (2026-10-19) — **T12 hecho** (`88a1abd`). El recorte vive en el selector, así que staff y galería lo heredan sin tocar sus editores.
+  - **Qué se agregó:** `encuadre.ts` (13 tests: centrado inicial, límites de los cuatro bordes con y sin zoom, casos vertical y horizontal, mapeo marco→origen, imagen de 0 px), `dibujar-recorte.ts` (canvas 800×1000, WebP 0.9; el MIME resultante decide la extensión) y `RecortadorDeFotoComponent` (arrastre con punteros, control de acercamiento, "Usar esta foto" / "Cancelar"). El selector ahora **valida → abre el encuadre → sube el recorte**; `SubidaDeFotosService.subirFoto` acepta `Blob`.
+  - **RED observado:** la primera corrida con los tests nuevos y el código viejo dio `Tests 7 failed | 260 passed (267)` (selector: "Cancelar no sube nada", los dos de tipo/tamaño; staff y galería: los tres flujos de foto).
+  - **Corrección del padre:** la vista previa de la imagen no tenía `absolute left-1/2 top-1/2`, así que el marco habría mostrado una esquina en vez del centro. Se agregó y se fijó con un test sobre el contrato de posicionamiento (jsdom no calcula layout, así que ahí no se puede verificar con medidas).
+  - **Los dos specs vecinos** (staff y galería) esperaban subida inmediata al elegir el archivo; se actualizaron con un helper `confirmarRecorte` que emite el recorte sin pasar por canvas (jsdom no tiene contexto 2D). El worker paró pidiendo permiso para tocarlos; los editó el padre, como corresponde.
+  - **Verificación:** suite `275 passed (275)` en 22 archivos. Mutación sobre `limitarEncuadre` (devolver el encuadre sin acotar) → `4 failed | 271 passed`, matando los cuatro tests de "no deja huecos"; restaurado → 275/275.
+  - **Pendiente de prueba real:** el dibujo en canvas y el encuadre tal como se ve no los puede probar jsdom. Falta que el usuario suba una foto descentrada, la mueva en el marco y confirme que en el sitio queda centrada.
