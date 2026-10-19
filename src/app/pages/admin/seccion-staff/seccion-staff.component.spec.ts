@@ -1,9 +1,11 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SeccionStaffComponent } from './seccion-staff.component';
 import { AppointmentService } from '../../../services/appointment.service';
 import { SubidaDeFotosService } from '../../../services/subida-de-fotos.service';
+import { RecortadorDeFotoComponent } from '../../../components/recortador-de-foto/recortador-de-foto.component';
 import { DatosDePeluquero, Peluquero } from '../../../models/appointment.model';
 import { MENSAJES } from '../../../components/estados';
 
@@ -105,6 +107,25 @@ function armar(opciones: Opciones = {}) {
     return boton;
   };
 
+  /**
+   * Confirma el encuadre con un recorte de prueba.
+   *
+   * jsdom no dibuja canvas, así que en vez de apretar "Usar esta foto" se
+   * emite el recorte que ese botón produciría.
+   */
+  const confirmarRecorte = () => {
+    const recortadores = fixture.debugElement.queryAll(
+      By.directive(RecortadorDeFotoComponent),
+    );
+    const recortador = recortadores[recortadores.length - 1];
+    if (!recortador) throw new Error('No se abrió el recortador de foto');
+
+    recortador.componentInstance.recorteConfirmado.emit(
+      new Blob(['recorte'], { type: 'image/webp' }),
+    );
+    fixture.detectChanges();
+  };
+
   /** Elige una foto nueva en la fila, a través del selector real. */
   const elegirFoto = (id: number) => {
     const fila = filas().find((candidata) =>
@@ -119,6 +140,8 @@ function armar(opciones: Opciones = {}) {
     });
     entrada.dispatchEvent(new Event('change'));
     fixture.detectChanges();
+
+    confirmarRecorte();
   };
 
   return {

@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { CarpetaDeFotos, SubidaDeFotosService } from '../../services/subida-de-fotos.service';
+import { RecortadorDeFotoComponent } from '../recortador-de-foto/recortador-de-foto.component';
 
 /**
  * Lo que el selector dice en pantalla.
@@ -25,16 +26,22 @@ const TAMANO_MAXIMO = 5 * 1024 * 1024;
 /**
  * Selector de foto reutilizable por el staff y por la galería.
  *
- * **Valida antes de subir.** El tipo y el tamaño se revisan acá, junto al campo,
- * porque es el único lugar donde el error se puede mostrar donde la persona está
- * mirando. El servicio de subida no valida: sólo sube lo que le dan.
+ * **Valida antes de abrir el encuadre.** El tipo y el tamaño se revisan acá,
+ * junto al campo, porque es el único lugar donde el error se puede mostrar donde
+ * la persona está mirando. El servicio de subida no valida: sólo sube lo que le
+ * dan.
  *
- * **No guarda nada en la base.** Sólo sube el archivo y emite la URL nueva; la
+ * **Se sube el recorte, no el archivo original.** Elegir una foto abre el
+ * recortador; sólo al confirmarlo se sube el Blob resultante. Cancelar deja la
+ * foto anterior intacta.
+ *
+ * **No guarda nada en la base.** Sólo sube la imagen y emite la URL nueva; la
  * fila se guarda desde el editor. Por eso el aviso dice "acordate de guardar".
  */
 @Component({
   selector: 'app-selector-de-foto',
   standalone: true,
+  imports: [RecortadorDeFotoComponent],
   template: `
     <div>
       <p class="block text-sm font-medium text-gray-800">{{ textos.etiqueta }}</p>
@@ -70,6 +77,14 @@ const TAMANO_MAXIMO = 5 * 1024 * 1024;
         </label>
       </div>
 
+      @if (archivoPendiente(); as archivo) {
+        <app-recortador-de-foto
+          [imagen]="archivo"
+          (recorteConfirmado)="subirRecorte($event)"
+          (cancelado)="cancelarRecorte()"
+        />
+      }
+
       @if (error()) {
         <p class="mt-2 text-sm text-red-700" role="alert">{{ error() }}</p>
       } @else if (aviso()) {
@@ -93,6 +108,9 @@ export class SelectorDeFotoComponent {
   readonly subiendo = signal(false);
   readonly error = signal<string | null>(null);
   readonly aviso = signal<string | null>(null);
+
+  /** La foto elegida que todavía está esperando el encuadre. */
+  readonly archivoPendiente = signal<File | null>(null);
 
   /**
    * La foto que se muestra: la recién subida si la hay, si no la guardada.
@@ -130,12 +148,23 @@ export class SelectorDeFotoComponent {
       return;
     }
 
+    // Todavía no se sube nada: primero se encuadra y la persona decide.
     this.error.set(null);
+    this.archivoPendiente.set(archivo);
+  }
+
+  /** Sube el recorte confirmado, no el archivo original. */
+  subirRecorte(recorte: Blob): void {
+    if (this.subiendo()) return;
+
+    this.error.set(null);
+    this.aviso.set(null);
     this.subiendo.set(true);
 
-    this.subida.subirFoto(archivo, this.carpeta()).subscribe({
+    this.subida.subirFoto(recorte, this.carpeta()).subscribe({
       next: (url) => {
         this.subiendo.set(false);
+        this.archivoPendiente.set(null);
         this.fotoNueva.set(url);
         this.aviso.set(TEXTOS.lista);
         this.fotoSubida.emit(url);
@@ -143,9 +172,16 @@ export class SelectorDeFotoComponent {
       error: () => {
         this.subiendo.set(false);
         // La foto anterior sigue a la vista: un fallo no la reemplaza por un
-        // hueco ni por una imagen rota.
+        // hueco ni por una imagen rota. El recortador queda abierto para
+        // reintentar sin volver a elegir el archivo.
         this.error.set(TEXTOS.errorAlSubir);
       },
     });
+  }
+
+  /** Cancelar el encuadre no sube nada ni toca la foto guardada. */
+  cancelarRecorte(): void {
+    this.archivoPendiente.set(null);
+    this.error.set(null);
   }
 }

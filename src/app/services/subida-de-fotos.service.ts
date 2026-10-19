@@ -36,11 +36,11 @@ const BUCKET = 'fotos';
 export class SubidaDeFotosService {
   private readonly supabase = inject(SUPABASE);
 
-  subirFoto(archivo: File, carpeta: CarpetaDeFotos): Observable<string> {
+  subirFoto(archivo: Blob, carpeta: CarpetaDeFotos): Observable<string> {
     return from(this.subir(archivo, carpeta));
   }
 
-  private async subir(archivo: File, carpeta: CarpetaDeFotos): Promise<string> {
+  private async subir(archivo: Blob, carpeta: CarpetaDeFotos): Promise<string> {
     // Para un tipo que no es de los tres conocidos no hay validación acá, pero
     // tampoco una extensión fiable: se usa una genérica en vez de inventar una.
     const extension = EXTENSION_POR_TIPO[archivo.type] ?? 'bin';

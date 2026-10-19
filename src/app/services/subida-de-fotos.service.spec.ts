@@ -9,7 +9,7 @@ import { SUPABASE } from './supabase.client';
 interface Subida {
   bucket: string;
   ruta: string;
-  archivo: File;
+  archivo: Blob;
   opciones: { contentType: string; upsert: boolean };
 }
 
@@ -30,7 +30,7 @@ function crearSupabaseFalso(errorDeSubida: { message: string } | null = null) {
         return {
           async upload(
             ruta: string,
-            archivo: File,
+            archivo: Blob,
             opciones: { contentType: string; upsert: boolean },
           ) {
             subidas.push({ bucket, ruta, archivo, opciones });
@@ -106,6 +106,19 @@ describe('SubidaDeFotosService', () => {
     await firstValueFrom(service.subirFoto(archivo, 'galeria'));
 
     expect(subidas[0].ruta).toMatch(new RegExp(`^galeria/[0-9a-f-]{36}\\.${extension}$`));
+  });
+
+  it('acepta un Blob del recorte y deriva su extensión del MIME', async () => {
+    const { service, subidas } = armar();
+    // El recorte que emite el encuadre es un Blob, no un File con nombre.
+    const recorte = new Blob(['recorte'], { type: 'image/webp' });
+
+    const url = await firstValueFrom(service.subirFoto(recorte, 'peluqueros'));
+
+    expect(subidas[0].archivo).toBe(recorte);
+    expect(subidas[0].opciones.contentType).toBe('image/webp');
+    expect(subidas[0].ruta).toMatch(/^peluqueros\/[0-9a-f-]{36}\.webp$/);
+    expect(url).toBe(`https://fotos.test/fotos/${subidas[0].ruta}`);
   });
 
   it('devuelve la URL pública de la ruta subida', async () => {
