@@ -66,6 +66,10 @@
   *Criterio:* vive fuera de la aplicación (`docs/manual-administradora.md`), no inventa funciones que la app no tiene y usa **las mismas palabras que se ven en pantalla**, no las del código.
   *Check:* cada etiqueta que menciona el manual existe en el panel tal cual está escrita, y el manual no promete ninguna capacidad inexistente.
 
+- **S13** — El equipo se administra desde el panel **igual que la galería**: se puede **agregar una persona** (nombre, rol, trayectoria, título y foto) y **darla de baja o volver a publicarla**, sin borrar sus datos.
+  *Criterio:* la persona nueva queda al final de la lista y se ve en el sitio; la baja la saca del sitio sin perder nada; el panel lista también a las personas dadas de baja, apagadas y con "Volver a publicar".
+  *Check:* agregar una persona con foto, verla en el sitio, darla de baja, comprobar que desaparece, volver a publicarla y verla igual que antes.
+
 ## Supuestos (ASUMIDOS — CONFIRMAR)
 
 - **A1** — Hay **una sola** administradora, con una única cuenta. No hay roles ni varios usuarios.
@@ -97,6 +101,7 @@
 | T10 | S7, S8 | delegada (contexto) | hecha (`adf669e`) | Galería + subida de foto. |
 | T11 | S12 | inline | hecha (`6ff2ad0`) | Manual en `docs/manual-administradora.md`, aparte y sin código. |
 | T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
+| T13 | S13, S6 | delegada (contexto) | hecha (`df363ef`) | Alta y baja del equipo, igual que la galería. |
 
 ## Log
 
@@ -273,3 +278,16 @@
   - **Qué cubre:** qué es el panel, cómo entrar (y los tres mensajes de error del ingreso), las cuatro pestañas, la regla de guardar, los 10 textos con su etiqueta real, servicios y precios, equipo, galería, el encuadre de fotos con sus consejos, qué hacer ante un error, **lo que el panel todavía no hace** (turnos, altas y bajas del equipo, contraseña, varias cuentas) y un glosario de cinco palabras.
   - **Verificación (estructural, la que corresponde a un documento):** se extrajeron del manual las **21 frases entrecomilladas** y las **33 etiquetas** que menciona, y se buscaron literales en `src/app` y `supabase/schema.sql`: las 21 y las 33 existen tal cual. No hay ninguna promesa de una función inexistente; en particular, el manual dice explícitamente que el botón de reservar no guarda turnos.
   - **Credenciales:** el manual nunca escribe una cuenta real. Dice "el correo y la contraseña de la cuenta del salón" y la dirección se ejemplifica con un dominio inventado.
+- **L66** (2026-10-19) — **El equipo también se administra desde el panel.** Textual: "me di cuenta que no tenemos manera de agregar o quitar gente del equipo de trabajo desde el perfil de administrador , puede agregar esa funcionalidad ? de la misma manera que agregas trabajos o los das de baja".
+  - **Se copia el patrón de la galería (S7) sin inventar otro**: alta en un formulario colapsado que se destruye al cerrarse, baja lógica (`activo = false`) y filas dadas de baja visibles y apagadas con "Volver a publicar". Dos formas distintas de la misma operación obligarían a la administradora a aprender dos veces lo mismo.
+  - **La foto es obligatoria al crear**: la tarjeta del equipo muestra una imagen y sin foto quedaría rota. Es la misma regla que ya tiene la galería, y la fila nueva no se publica hasta tener foto.
+  - **`getPeluqueros()` público no cambia** (ya filtra `activo = true`); se agregan los métodos de panel, como se hizo con servicios y galería. Toda escritura sigue verificando la fila devuelta.
+  - **`orden = max + 1`** para que la persona nueva quede al final, igual que en servicios y galería.
+- **L67** (2026-10-19) — **T13 hecho.** Alta y baja del equipo, copiando el patrón de la galería.
+  - **Qué se agregó:** `PeluqueroAdministrable` en el modelo; `getTodosLosPeluqueros` (sin filtro de `activo`), `crearPeluquero` (`orden = max + 1`, `titulo`/`foto_url` vacíos → `NULL`, verificación de una fila) y `cambiarActivoDePeluquero` en el servicio; en el editor, alta colapsada con destrucción al cerrar, filas inactivas apagadas con "Dado de baja" y "Volver a publicar". El sitio público no se tocó.
+  - **RED observado:** la suite no compiló (`TS2339: Property 'getTodosLosPeluqueros' does not exist…`, `TS2304: Cannot find name 'Peluquero'`), que es el rojo correcto para una API que todavía no existe. Después apareció un rojo conductual real: `getTodosLosPeluqueros is not a function` en `panel.component.spec.ts` (1 failed / 290), porque el panel monta el editor de Equipo y su stub no tenía el método nuevo.
+  - **Desvío de superficie, aceptado:** el worker tocó `panel.component.spec.ts` (una línea: `getTodosLosPeluqueros: () => of([])`) fuera de la lista declarada. No es scope nuevo: es el stub que el contenedor necesita para montar el hijo. Se acepta y se deja anotado.
+  - **Un test viejo cambió de sentido:** el que afirmaba que el Equipo no tiene alta ni baja (S6) se actualizó a S13. No es un test debilitado: es una spec reemplazada por una decisión del usuario.
+  - **Verificación:** `Tests 291 passed (291)` en 22 archivos. Mutación: sacar el chequeo de filas en `cambiarActivoDePeluquero` pone rojo `si la base no actualiza ninguna fila, FALLA en vez de decir que cambió` (1 failed / 290); restaurado → 291/291.
+  - **El manual se actualiza en el mismo PR:** la sección 7 ahora explica el alta y la baja, y se sacó de la sección 11 la frase que decía que el equipo no se administra desde el panel. Las etiquetas nuevas ("Agregar una persona", "La persona nueva queda al final de la lista.") se verificaron contra el código, igual que en T11.
+  - **Pendiente de prueba real:** agregar una persona con foto desde el navegador, verla en el sitio, darla de baja, comprobar que desaparece y volver a publicarla. La suite usa cliente falso y no prueba la base real.

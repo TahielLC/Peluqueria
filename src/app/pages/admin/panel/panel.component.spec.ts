@@ -77,6 +77,7 @@ describe('AdminPanelComponent', () => {
             cambiarActivoDeServicio: () => of(void 0),
             crearServicio: () => of(void 0),
             getPeluqueros: () => of([]),
+            getTodosLosPeluqueros: () => of([]),
             actualizarPeluquero: () => of(void 0),
             getTodaLaGaleria: () => of([]),
           },
