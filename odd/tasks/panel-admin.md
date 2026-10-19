@@ -62,6 +62,10 @@
   *Criterio:* la foto guardada ya viene recortada a 4:5 (la proporción del panel de la galería y del retrato del staff) y el encuadre elegido se respeta en el sitio, sin tocar las componentes públicas ni agregar columnas.
   *Check:* subir una foto con la persona descentrada, moverla dentro del marco, guardar, recargar y verla centrada en el sitio.
 
+- **S12** — La administradora tiene un **manual de uso aparte**: un documento en castellano, sin términos técnicos, que explica cómo entrar, qué cambia cada pestaña, cómo se suben y se encuadran las fotos, qué hacer cuando aparece un error y qué cosas el panel todavía no hace. Es documentación, **no código nuevo**.
+  *Criterio:* vive fuera de la aplicación (`docs/manual-administradora.md`), no inventa funciones que la app no tiene y usa **las mismas palabras que se ven en pantalla**, no las del código.
+  *Check:* cada etiqueta que menciona el manual existe en el panel tal cual está escrita, y el manual no promete ninguna capacidad inexistente.
+
 ## Supuestos (ASUMIDOS — CONFIRMAR)
 
 - **A1** — Hay **una sola** administradora, con una única cuenta. No hay roles ni varios usuarios.
@@ -91,7 +95,7 @@
 | T8 | S5, S8 | delegada (contexto) | hecha (`8ced0a9`) | Edición de servicios y precios. |
 | T9 | S6, S8 | delegada (contexto) | hecha (`3b835f0`) | Staff + subida de foto. |
 | T10 | S7, S8 | delegada (contexto) | hecha (`adf669e`) | Galería + subida de foto. |
-| T11 | S8 | inline | pendiente | Manual de uso para la administradora. |
+| T11 | S12 | inline | hecha (`6ff2ad0`) | Manual en `docs/manual-administradora.md`, aparte y sin código. |
 | T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
 
 ## Log
@@ -258,3 +262,14 @@
   - **Los dos specs vecinos** (staff y galería) esperaban subida inmediata al elegir el archivo; se actualizaron con un helper `confirmarRecorte` que emite el recorte sin pasar por canvas (jsdom no tiene contexto 2D). El worker paró pidiendo permiso para tocarlos; los editó el padre, como corresponde.
   - **Verificación:** suite `275 passed (275)` en 22 archivos. Mutación sobre `limitarEncuadre` (devolver el encuadre sin acotar) → `4 failed | 271 passed`, matando los cuatro tests de "no deja huecos"; restaurado → 275/275.
   - **Pendiente de prueba real:** el dibujo en canvas y el encuadre tal como se ve no los puede probar jsdom. Falta que el usuario suba una foto descentrada, la mueva en el marco y confirme que en el sitio queda centrada.
+- **L63** (2026-10-19) — **El usuario verificó el encuadre en el navegador.** Textual: "okey probe los recortes y van bien".
+  - Cierra el `Check` de **S11** y la única prueba que jsdom no podía dar: el dibujo en canvas y la correspondencia entre el marco que se ve y el archivo que se guarda.
+  - **Este registro llegó tarde y por una razón que hay que anotar**: se escribió en la rama `feat/panel-staff-galeria` **después** de que el usuario mergeara la PR #3 (`a68b1e4`), así que quedó colgado en una rama ya mergeada y no entró a `main`. Es el **mismo error de L60 repetido**: pushear sin volver a mirar el estado de la PR. De ahí en adelante, antes de cualquier push, `gh pr view <n>` primero; si está mergeada, se corta rama nueva desde `main`.
+- **L64** (2026-10-19) — **El manual va como documento aparte, sin código.** Textual: "y yo creo  que lo mas conveniente un documento aparte 0 codigo explicando de una manera nada tecnica como debe manejarse".
+  - **Decisión:** un archivo `docs/manual-administradora.md`, en castellano y sin jerga. No una página de ayuda dentro del panel: eso sería una ruta, una UI y tests nuevos para un texto que cambia poco y que la administradora no va a leer dentro de la app.
+  - **Qué manda el documento:** cómo entrar, qué hace cada pestaña con las etiquetas reales de la pantalla, cómo se guardan los cambios, cómo se suben y se encuadran las fotos, qué significan los errores y **qué no hace todavía el panel** (turnos, altas y bajas del equipo, contraseña, varias cuentas).
+  - **Qué no manda:** credenciales. El manual dice "el correo y la contraseña de la cuenta del salón" y nunca escribe una cuenta real.
+- **L65** (2026-10-19) — **T11 hecho** (`6ff2ad0`): `docs/manual-administradora.md`, doce secciones en castellano llano, sin una sola palabra del oficio.
+  - **Qué cubre:** qué es el panel, cómo entrar (y los tres mensajes de error del ingreso), las cuatro pestañas, la regla de guardar, los 10 textos con su etiqueta real, servicios y precios, equipo, galería, el encuadre de fotos con sus consejos, qué hacer ante un error, **lo que el panel todavía no hace** (turnos, altas y bajas del equipo, contraseña, varias cuentas) y un glosario de cinco palabras.
+  - **Verificación (estructural, la que corresponde a un documento):** se extrajeron del manual las **21 frases entrecomilladas** y las **33 etiquetas** que menciona, y se buscaron literales en `src/app` y `supabase/schema.sql`: las 21 y las 33 existen tal cual. No hay ninguna promesa de una función inexistente; en particular, el manual dice explícitamente que el botón de reservar no guarda turnos.
+  - **Credenciales:** el manual nunca escribe una cuenta real. Dice "el correo y la contraseña de la cuenta del salón" y la dirección se ejemplifica con un dominio inventado.
