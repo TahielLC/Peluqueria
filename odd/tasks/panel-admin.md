@@ -58,6 +58,10 @@
   *Criterio:* `ServiciosComponent`, `GalleryComponent` y `StaffComponent` no necesitan cambiar para seguir mostrando datos.
   *Check:* los 3 componentes siguen verdes sin haber tocado su código.
 
+- **S11** — Antes de subir una foto, la administradora puede **encuadrarla**: moverla y acercarla dentro de un marco con la proporción en que se muestra en el sitio, para que la persona quede centrada. Lo que se guarda es **el recorte**, no la imagen original.
+  *Criterio:* la foto guardada ya viene recortada a 4:5 (la proporción del panel de la galería y del retrato del staff) y el encuadre elegido se respeta en el sitio, sin tocar las componentes públicas ni agregar columnas.
+  *Check:* subir una foto con la persona descentrada, moverla dentro del marco, guardar, recargar y verla centrada en el sitio.
+
 ## Supuestos (ASUMIDOS — CONFIRMAR)
 
 - **A1** — Hay **una sola** administradora, con una única cuenta. No hay roles ni varios usuarios.
@@ -88,6 +92,7 @@
 | T9 | S6, S8 | delegada (contexto) | hecha (`3b835f0`) | Staff + subida de foto. |
 | T10 | S7, S8 | delegada (contexto) | hecha (`adf669e`) | Galería + subida de foto. |
 | T11 | S8 | inline | pendiente | Manual de uso para la administradora. |
+| T12 | S11, S8 | delegada (contexto) | pendiente | Encuadre de la foto antes de subirla (recorte 4:5). |
 
 ## Log
 
@@ -230,6 +235,13 @@
   - **Lo que sigue sin verificar, y es lo importante:** la subida real de archivos al bucket `fotos` y sus políticas de Storage. La suite usa cliente falso (A5); la prueba es en el navegador: subir una foto de staff y una de galería, guardar, recargar y verlas en el sitio.
 - **L60** (2026-10-19) — **La PR #2 ya estaba mergeada con T8 cuando fui a pushear T9 y T10, y no lo verifiqué.** Consecuencia: los commits de T9/T10 quedaron en una rama cuya PR había cerrado, y edité el título y el cuerpo de una PR mergeada describiendo cambios que no contenía. Las dos cosas se corrigieron: la PR #2 recuperó su contenido de T8, y T9/T10 se cherry-piquearon a `feat/panel-staff-galeria` desde `main`. Los hashes citados cambiaron (T9 = `3b835f0`, T10 = `adf669e`); la rama remota `feat/panel-servicios` quedó con esos cuatro commits sueltos, sin PR, y no la borré porque borrar una rama remota no es una decisión que me corresponda.
   - **Lección de método:** antes de pushear a una rama hay que mirar el estado de su PR (`gh pr view`). Dar por abierta una PR que el usuario pudo mergear no es un detalle: cambia dónde caen los commits.
+- **L61** (2026-10-19) — **El usuario verificó en el navegador que las dos subidas funcionan** (staff y galería), y pidió una cosa más: **encuadrar la foto antes de subirla**, porque si la persona no está centrada la foto queda corrida hacia un lado.
+  - Textual: "okey hice las pruebas de subir fotos en ambos lugares desde el panel de admin, las dos fotos se subieron con exito , ahora el detalle que se nos escapo es que al momento de subir una foto no tengo manera de centrar lo si la foto no se saco correctamente , por ejemplo subo una foto y si la persona no esta justamente centrada cuando suba la foto puede que quede mas de un lado que del otro. Puede ser que se llame Image Cropping, si necesitas que instale la libreria dime o si puedes hacer lo tu hazlo..."
+  - **Decisión: sin librería.** Se hace con `<canvas>` y punteros nativos, como el resto del panel. Motivos: no suma una dependencia que tenga que seguirle el ritmo a Angular, y deja controlar el gesto y el texto para alguien que no sabe de apps.
+  - **La proporción sale de cómo se muestra la foto, no de una preferencia**: el panel de la galería mide 340×430 (≈4:5) y la foto del staff es un retrato; se recorta a **4:5** (800×1000) en ambos casos. Recortar a otra proporción volvería a correr el encuadre en el sitio.
+  - **Se guarda el recorte, no la original**: el sitio, el carrusel y el cilindro ya reciben la foto bien encuadrada, sin tocar las componentes públicas ni agregar columnas.
+  - **La matemática del encuadre (mover, acercar, limitar y mapear al origen) se separa en funciones puras y se prueba**; el dibujo en `<canvas>` queda fino y se verifica en el navegador, porque jsdom no renderiza imágenes.
+
 
 
 
