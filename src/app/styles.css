@@ -4,32 +4,32 @@
  * Identidad visual del sitio.
  *
  * POR QUÉ TOKENS Y NO COLORES SUELTOS EN LAS PLANTILLAS
- * El sitio tenía `slate-900` e `indigo-600` repetidos en cuatro plantillas: para
- * cambiar el rumbo había que tocar todos los archivos y era fácil dejar uno
- * atrás. Acá el rumbo vive en un solo bloque y las plantillas piden nombres
- * (`bg-crema`, `text-bronce`), no valores.
+ * El rumbo vive en un solo bloque y las plantillas piden nombres (`bg-noche`,
+ * `text-oro`), no valores. Cambiar la paleta es este bloque; no una cacería por
+ * cuatro plantillas.
  *
- * La paleta es cálida y editorial a propósito: las fotos de trabajos y de
- * personas se leen mejor sobre neutros cálidos que sobre gris azulado, y el
- * bronce acompaña el rubio, el castaño y la piel sin competir con ellos.
+ * La paleta es oscura y editorial, tomada del local: casi negro cálido, blanco
+ * hueso, oro de letrero y un verde de señal que se usa con cuentagotas. El
+ * contraste alto es a propósito: las fotos de trabajos y de personas se leen
+ * como afiches, no como catálogo.
  */
 @theme {
   /* Superficies */
-  --color-crema: #faf6f0;
-  --color-arena: #f1e8dc;
-  --color-linea: #e3d6c6;
+  --color-noche: #0b0c0a;
+  --color-carbon: #141712;
+  --color-borde: #2a2e27;
 
-  /* Tinta: el casi-negro cálido del texto y del pie */
-  --color-tinta: #221c18;
-  --color-humo: #6e6156;
+  /* Texto */
+  --color-hueso: #f2eee5;
+  --color-humo: #9b978a;
 
-  /* Acento. `claro` es para superficies oscuras: el bronce base no contrasta. */
-  --color-bronce: #a9744f;
-  --color-bronce-oscuro: #8b5a38;
-  --color-bronce-claro: #cba078;
+  /* Acentos: oro para el letrero, verde para señales puntuales */
+  --color-oro: #d6b25e;
+  --color-oro-claro: #e8cd8f;
+  --color-verde: #38d07f;
 
-  /* Tipografía: serif de titulares + sans de lectura */
-  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+  /* Tipografía: grotesca ajustada para titulares + sans de lectura */
+  --font-display: "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -40,23 +40,145 @@
   }
 
   body {
-    @apply bg-crema font-sans text-tinta antialiased;
+    @apply bg-noche font-sans text-hueso antialiased;
   }
 
   /* La barra de navegación es pegajosa: sin este margen, un ancla (#galeria)
      deja el título de la sección escondido debajo de la barra. */
   section[id] {
-    scroll-margin-top: 5rem;
+    scroll-margin-top: 4.5rem;
   }
 
   ::selection {
-    background-color: var(--color-bronce);
-    color: var(--color-crema);
+    background-color: var(--color-oro);
+    color: var(--color-noche);
   }
 }
 
+/* ============================================================================
+ * El letrero de neón del nombre del salón.
+ *
+ * Cómo funciona, sin trucos: el nombre se dibuja dos veces. La copia de atrás
+ * es el halo (borrosa, dorada, oculta para lectores de pantalla) y la de
+ * adelante es el texto. Las dos comparten la misma animación de 3.4s pero con
+ * relojes distintos: el halo arranca primero y va subiendo de opacidad; el texto
+ * se queda apagado hasta el 38% y ahí enciende con dos parpadeos cortos, como un
+ * tubo de neón que arranca. Al terminar, las dos quedan en su estado iluminado
+ * (`both`), así que la luz "se queda" sobre el nombre.
+ *
+ * No hay JS: es CSS puro, se ejecuta una sola vez al cargar y no consume nada
+ * después.
+ * ========================================================================== */
+
+@keyframes neon-halo {
+  0% {
+    opacity: 0;
+    filter: blur(48px) brightness(0.6);
+    transform: scale(0.97);
+  }
+  35% {
+    opacity: 0.22;
+  }
+  62% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0.4;
+    filter: blur(32px) brightness(1);
+    transform: scale(1.015);
+  }
+}
+
+@keyframes neon-texto {
+  0%,
+  38% {
+    color: #4e4a40;
+    text-shadow: none;
+  }
+  46% {
+    color: #6f6857;
+    text-shadow: 0 0 2px rgb(214 178 94 / 20%);
+  }
+  52% {
+    color: #f7f1df;
+    text-shadow:
+      0 0 6px rgb(214 178 94 / 70%),
+      0 0 20px rgb(214 178 94 / 45%);
+  }
+  55% {
+    color: #b5ac95;
+    text-shadow: 0 0 4px rgb(214 178 94 / 35%);
+  }
+  60% {
+    color: #faf5e8;
+    text-shadow:
+      0 0 8px rgb(214 178 94 / 75%),
+      0 0 28px rgb(214 178 94 / 45%);
+  }
+  64% {
+    color: #cbc2a9;
+    text-shadow: 0 0 5px rgb(214 178 94 / 40%);
+  }
+  100% {
+    color: #f7f3e8;
+    text-shadow:
+      0 0 10px rgb(214 178 94 / 55%),
+      0 0 34px rgb(214 178 94 / 30%),
+      0 0 90px rgb(214 178 94 / 16%);
+  }
+}
+
+@layer components {
+  .neon {
+    position: relative;
+    display: block;
+    isolation: isolate;
+  }
+
+  .neon-halo,
+  .neon-texto {
+    display: block;
+    font: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+  }
+
+  .neon-halo {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    color: var(--color-oro);
+    filter: blur(34px);
+    opacity: 0;
+    animation: neon-halo 3.4s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  }
+
+  .neon-texto {
+    position: relative;
+    z-index: 1;
+    animation: neon-texto 3.4s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  }
+}
+
+/* Quien pidió menos movimiento ve el cartel ya encendido, sin parpadeo. */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .neon-halo {
+    animation: none;
+    opacity: 0.4;
+    filter: blur(32px);
+    transform: scale(1.015);
+  }
+
+  .neon-texto {
+    animation: none;
+    color: #f7f3e8;
+    text-shadow:
+      0 0 10px rgb(214 178 94 / 55%),
+      0 0 34px rgb(214 178 94 / 30%),
+      0 0 90px rgb(214 178 94 / 16%);
   }
 }

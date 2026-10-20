@@ -10,34 +10,42 @@ const SWIPE_THRESHOLD = 50;
   selector: 'app-staff',
   standalone: true,
   template: `
-    <section id="staff" class="bg-arena px-5 py-20 md:py-28">
-      <div class="mx-auto max-w-4xl">
-        <div class="mx-auto max-w-2xl text-center">
-          <span class="mx-auto block h-px w-12 bg-bronce/60" aria-hidden="true"></span>
-          <h2 class="mt-6 font-display text-3xl font-light tracking-tight text-tinta sm:text-4xl">
-            {{ textos.texto('staff_titulo') }}
-          </h2>
-          <p class="mt-4 text-base leading-relaxed text-humo">{{ textos.texto('staff_bajada') }}</p>
+    <section id="staff" class="bg-carbon px-5 py-20 md:py-28">
+      <div class="mx-auto max-w-6xl">
+        <div
+          class="flex flex-col gap-5 border-t border-borde pt-7 md:flex-row md:items-end md:justify-between"
+        >
+          <div>
+            <p class="text-[10px] font-medium uppercase tracking-[0.3em] text-oro">03 — Equipo</p>
+            <h2
+              class="mt-3 font-display text-3xl font-semibold uppercase leading-[0.95] tracking-[-0.025em] text-hueso sm:text-4xl md:text-5xl"
+            >
+              {{ textos.texto('staff_titulo') }}
+            </h2>
+          </div>
+          <p class="max-w-sm text-sm leading-relaxed text-humo md:text-right">
+            {{ textos.texto('staff_bajada') }}
+          </p>
         </div>
 
         @if (cargando()) {
-          <p class="py-16 text-center text-humo/70" role="status">{{ mensajes.cargando }}</p>
+          <p class="py-16 text-humo" role="status">{{ mensajes.cargando }}</p>
         } @else if (error()) {
-          <div class="py-16 text-center">
+          <div class="py-16">
             <p class="text-humo">{{ error() }}</p>
             <button
               type="button"
               (click)="cargar()"
-              class="mt-6 rounded-full bg-tinta px-6 py-2.5 text-sm font-medium text-crema transition-colors hover:bg-bronce-oscuro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-2 focus-visible:ring-offset-arena"
+              class="mt-6 rounded-full bg-hueso px-6 py-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-noche transition-colors hover:bg-oro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oro focus-visible:ring-offset-2 focus-visible:ring-offset-carbon"
             >
               {{ mensajes.reintentar }}
             </button>
           </div>
         } @else if (total() === 0) {
-          <p class="py-16 text-center text-humo/70">Todavía no hay profesionales cargados.</p>
+          <p class="py-16 text-humo">Todavía no hay profesionales cargados.</p>
         } @else {
           <div
-            class="mt-14 select-none rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-4 focus-visible:ring-offset-arena"
+            class="mt-12 select-none rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-oro focus-visible:ring-offset-4 focus-visible:ring-offset-carbon"
             role="group"
             aria-roledescription="carrusel"
             aria-label="Profesionales del equipo"
@@ -48,7 +56,7 @@ const SWIPE_THRESHOLD = 50;
             (touchend)="onTouchEnd($event)"
           >
             <!-- Ventana: un perfil por vez -->
-            <div class="overflow-hidden rounded-3xl border border-linea bg-white shadow-[0_28px_60px_-45px_rgba(34,28,24,0.6)]">
+            <div class="overflow-hidden rounded-3xl border border-borde bg-noche">
               <div class="flex transition-transform duration-500 ease-out" [style.transform]="trackTransform()">
                 @for (peluquero of peluqueros(); track peluquero.id; let i = $index) {
                   <article
@@ -59,12 +67,12 @@ const SWIPE_THRESHOLD = 50;
                       [src]="peluquero.fotoUrl"
                       [alt]="peluquero.nombre"
                       draggable="false"
-                      class="h-72 w-full object-cover sm:h-auto sm:w-2/5"
+                      class="h-80 w-full object-cover sm:h-auto sm:w-2/5"
                     >
 
                     <div class="flex flex-1 flex-col justify-center p-7 sm:p-10">
-                      <h3 class="font-display text-2xl leading-snug text-tinta sm:text-3xl">{{ peluquero.nombre }}</h3>
-                      <p class="mt-2 text-[11px] font-medium uppercase tracking-[0.24em] text-bronce">
+                      <h3 class="font-display text-2xl font-medium uppercase tracking-[-0.01em] text-hueso sm:text-3xl">{{ peluquero.nombre }}</h3>
+                      <p class="mt-2 text-[10px] font-medium uppercase tracking-[0.24em] text-oro">
                         {{ peluquero.rol }}
                       </p>
 
@@ -73,8 +81,8 @@ const SWIPE_THRESHOLD = 50;
                       </p>
 
                       @if (peluquero.titulo) {
-                        <p class="mt-6 border-t border-linea/70 pt-5 text-sm text-humo">
-                          <span class="font-medium text-tinta">Título: </span>{{ peluquero.titulo }}
+                        <p class="mt-6 border-t border-borde pt-5 text-sm text-humo">
+                          <span class="font-medium text-hueso">Título: </span>{{ peluquero.titulo }}
                         </p>
                       }
                     </div>
@@ -90,7 +98,7 @@ const SWIPE_THRESHOLD = 50;
                   type="button"
                   (click)="prev()"
                   aria-label="Profesional anterior"
-                  class="grid h-11 w-11 place-items-center rounded-full border border-linea bg-white text-tinta shadow-sm transition hover:border-bronce/40 hover:text-bronce-oscuro focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-2 focus-visible:ring-offset-arena"
+                  class="grid h-11 w-11 place-items-center rounded-full border border-borde bg-noche text-hueso transition hover:border-oro/50 hover:text-oro focus:outline-none focus-visible:ring-2 focus-visible:ring-oro focus-visible:ring-offset-2 focus-visible:ring-offset-carbon"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
@@ -106,8 +114,8 @@ const SWIPE_THRESHOLD = 50;
                       [attr.aria-current]="isActive(i)"
                       [class]="
                         isActive(i)
-                          ? 'h-1.5 w-8 rounded-full bg-bronce transition-all duration-500'
-                          : 'h-1.5 w-1.5 rounded-full bg-tinta/20 transition-all duration-500 hover:bg-tinta/40'
+                          ? 'h-1.5 w-8 rounded-full bg-oro transition-all duration-500'
+                          : 'h-1.5 w-1.5 rounded-full bg-hueso/20 transition-all duration-500 hover:bg-hueso/40'
                       "
                     ></button>
                   }
@@ -117,7 +125,7 @@ const SWIPE_THRESHOLD = 50;
                   type="button"
                   (click)="next()"
                   aria-label="Profesional siguiente"
-                  class="grid h-11 w-11 place-items-center rounded-full border border-linea bg-white text-tinta shadow-sm transition hover:border-bronce/40 hover:text-bronce-oscuro focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-2 focus-visible:ring-offset-arena"
+                  class="grid h-11 w-11 place-items-center rounded-full border border-borde bg-noche text-hueso transition hover:border-oro/50 hover:text-oro focus:outline-none focus-visible:ring-2 focus-visible:ring-oro focus-visible:ring-offset-2 focus-visible:ring-offset-carbon"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -125,7 +133,7 @@ const SWIPE_THRESHOLD = 50;
                 </button>
               </div>
 
-              <p class="mt-6 text-center text-xs text-humo/70">Deslizá o usá las teclas ← →</p>
+              <p class="mt-6 text-center text-[10px] uppercase tracking-[0.2em] text-humo/70">Deslizá o usá las teclas ← →</p>
             }
           </div>
         }
