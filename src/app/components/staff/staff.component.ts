@@ -10,29 +10,34 @@ const SWIPE_THRESHOLD = 50;
   selector: 'app-staff',
   standalone: true,
   template: `
-    <section id="staff" class="bg-gray-50 px-4 py-16">
-      <div class="mx-auto max-w-4xl text-center">
-        <h2 class="mb-3 text-3xl font-bold text-gray-800">{{ textos.texto('staff_titulo') }}</h2>
-        <p class="mb-10 text-gray-600">{{ textos.texto('staff_bajada') }}</p>
+    <section id="staff" class="bg-arena px-5 py-20 md:py-28">
+      <div class="mx-auto max-w-4xl">
+        <div class="mx-auto max-w-2xl text-center">
+          <span class="mx-auto block h-px w-12 bg-bronce/60" aria-hidden="true"></span>
+          <h2 class="mt-6 font-display text-3xl font-light tracking-tight text-tinta sm:text-4xl">
+            {{ textos.texto('staff_titulo') }}
+          </h2>
+          <p class="mt-4 text-base leading-relaxed text-humo">{{ textos.texto('staff_bajada') }}</p>
+        </div>
 
         @if (cargando()) {
-          <p class="py-16 text-gray-400" role="status">{{ mensajes.cargando }}</p>
+          <p class="py-16 text-center text-humo/70" role="status">{{ mensajes.cargando }}</p>
         } @else if (error()) {
-          <div class="py-16">
-            <p class="text-gray-600 mb-6">{{ error() }}</p>
+          <div class="py-16 text-center">
+            <p class="text-humo">{{ error() }}</p>
             <button
               type="button"
               (click)="cargar()"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+              class="mt-6 rounded-full bg-tinta px-6 py-2.5 text-sm font-medium text-crema transition-colors hover:bg-bronce-oscuro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-2 focus-visible:ring-offset-arena"
             >
               {{ mensajes.reintentar }}
             </button>
           </div>
         } @else if (total() === 0) {
-          <p class="py-16 text-gray-400">Todavía no hay profesionales cargados.</p>
+          <p class="py-16 text-center text-humo/70">Todavía no hay profesionales cargados.</p>
         } @else {
           <div
-            class="select-none rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+            class="mt-14 select-none rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-4 focus-visible:ring-offset-arena"
             role="group"
             aria-roledescription="carrusel"
             aria-label="Profesionales del equipo"
@@ -43,7 +48,7 @@ const SWIPE_THRESHOLD = 50;
             (touchend)="onTouchEnd($event)"
           >
             <!-- Ventana: un perfil por vez -->
-            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-md">
+            <div class="overflow-hidden rounded-3xl border border-linea bg-white shadow-[0_28px_60px_-45px_rgba(34,28,24,0.6)]">
               <div class="flex transition-transform duration-500 ease-out" [style.transform]="trackTransform()">
                 @for (peluquero of peluqueros(); track peluquero.id; let i = $index) {
                   <article
@@ -54,20 +59,22 @@ const SWIPE_THRESHOLD = 50;
                       [src]="peluquero.fotoUrl"
                       [alt]="peluquero.nombre"
                       draggable="false"
-                      class="h-64 w-full object-cover sm:h-auto sm:w-2/5"
+                      class="h-72 w-full object-cover sm:h-auto sm:w-2/5"
                     >
 
-                    <div class="flex-1 p-6 sm:p-8">
-                      <h3 class="text-xl font-semibold text-gray-800">{{ peluquero.nombre }}</h3>
-                      <p class="mt-1 text-sm font-medium text-indigo-600">{{ peluquero.rol }}</p>
+                    <div class="flex flex-1 flex-col justify-center p-7 sm:p-10">
+                      <h3 class="font-display text-2xl leading-snug text-tinta sm:text-3xl">{{ peluquero.nombre }}</h3>
+                      <p class="mt-2 text-[11px] font-medium uppercase tracking-[0.24em] text-bronce">
+                        {{ peluquero.rol }}
+                      </p>
 
-                      <p class="mt-4 text-sm leading-relaxed text-gray-600">
+                      <p class="mt-5 text-sm leading-relaxed text-humo">
                         {{ peluquero.experiencia }}
                       </p>
 
                       @if (peluquero.titulo) {
-                        <p class="mt-5 border-t border-gray-100 pt-5 text-sm text-gray-500">
-                          <span class="font-medium text-gray-700">Título: </span>{{ peluquero.titulo }}
+                        <p class="mt-6 border-t border-linea/70 pt-5 text-sm text-humo">
+                          <span class="font-medium text-tinta">Título: </span>{{ peluquero.titulo }}
                         </p>
                       }
                     </div>
@@ -83,9 +90,9 @@ const SWIPE_THRESHOLD = 50;
                   type="button"
                   (click)="prev()"
                   aria-label="Profesional anterior"
-                  class="grid h-11 w-11 place-items-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                  class="grid h-11 w-11 place-items-center rounded-full border border-linea bg-white text-tinta shadow-sm transition hover:border-bronce/40 hover:text-bronce-oscuro focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-2 focus-visible:ring-offset-arena"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
@@ -99,8 +106,8 @@ const SWIPE_THRESHOLD = 50;
                       [attr.aria-current]="isActive(i)"
                       [class]="
                         isActive(i)
-                          ? 'h-1.5 w-8 rounded-full bg-indigo-600 transition-all duration-500'
-                          : 'h-1.5 w-1.5 rounded-full bg-gray-300 transition-all duration-500 hover:bg-gray-400'
+                          ? 'h-1.5 w-8 rounded-full bg-bronce transition-all duration-500'
+                          : 'h-1.5 w-1.5 rounded-full bg-tinta/20 transition-all duration-500 hover:bg-tinta/40'
                       "
                     ></button>
                   }
@@ -110,15 +117,15 @@ const SWIPE_THRESHOLD = 50;
                   type="button"
                   (click)="next()"
                   aria-label="Profesional siguiente"
-                  class="grid h-11 w-11 place-items-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                  class="grid h-11 w-11 place-items-center rounded-full border border-linea bg-white text-tinta shadow-sm transition hover:border-bronce/40 hover:text-bronce-oscuro focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-2 focus-visible:ring-offset-arena"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>
 
-              <p class="mt-6 text-xs text-gray-400">Deslizá o usá las teclas ← →</p>
+              <p class="mt-6 text-center text-xs text-humo/70">Deslizá o usá las teclas ← →</p>
             }
           </div>
         }

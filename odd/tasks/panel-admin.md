@@ -74,6 +74,10 @@
   *Criterio:* el manual del panel no menciona un botón que no existe; el servicio no expone un método que prometa un turno sin persistirlo.
   *Check:* buscar "reservar", "turno" y "agendar" en la UI y en el servicio no devuelve nada que prometa un turno.
 
+- **S15** — El sitio público tiene una **identidad visual propia**, cálida y editorial, y deja de verse como una plantilla genérica: paleta cálida (crema, arena, tinta, bronce), tipografía serif en los titulares, barra de navegación, portada con foto real y pie de página. El panel de administración no cambia de comportamiento.
+  *Criterio:* el rumbo visual vive en **tokens** (`@theme` en `styles.css`), no repartido en las plantillas; ninguna clase `indigo-*`/`slate-*` queda en el sitio público; la foto de la portada es la primera de la galería (contenido que la administradora ya cura), y si no hay galería la portada no inventa una foto.
+  *Check:* `npm start`, mirar la portada en móvil y escritorio; con galería vacía la portada queda sólo con los textos; con fotos, la primera aparece como imagen destacada.
+
 ## Supuestos (ASUMIDOS — CONFIRMAR)
 
 - **A1** — Hay **una sola** administradora, con una única cuenta. No hay roles ni varios usuarios.
@@ -107,6 +111,7 @@
 | T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
 | T13 | S13, S6 | delegada (contexto) | hecha (`df363ef`) | Alta y baja del equipo, igual que la galería. |
 | T14 | S14 | inline | hecha (`460dd82`) | v1 sin reserva: sacar el simulacro de turnos y corregir el manual. |
+| T15 | S15 | inline | hecha | Identidad visual del sitio público: tokens, tipografía, portada, secciones y pie. |
 
 ## Log
 
@@ -305,3 +310,8 @@
   - **Qué se corrigió:** el manual decía que el sitio tenía un botón de reservar. Ahora dice que **no hay reserva de turnos** en la v1 y que los turnos se toman por WhatsApp o teléfono.
   - **Verificación del `Check` de S14:** `grep -rniE "reservar|agendar|turno"` en el código de la app devuelve **sólo dos comentarios** que explican por qué la baja es lógica (para no romper turnos futuros). Ni UI, ni método, ni mensaje que prometa un turno.
   - **Suite:** `Tests 290 passed (290)` en 22 archivos. Bajó uno respecto de 291, y es exactamente el test del método eliminado: no se perdió cobertura de nada que exista.
+- **L70** (2026-10-19) — **Rediseño del sitio público.** Textual: "okey entonces nos dediquemos a poner mas bello nuestro front, cuando quede satisfecho , lo vamos a deployar ,y acepte el pull  y esta mergeado. Concuerdo con vos que solo vamos a agregar backend java cuando hagamos la reserva de turnos".
+  - **Qué se hizo:** el rumbo visual pasó a un bloque `@theme` en `styles.css` (crema/arena/tinta/humo/bronce + Fraunces/Inter). Se fueron `slate-*`, `indigo-*` y `gray-*` del sitio público. La portada tiene barra pegajosa, titular serif, dos llamados a la acción y la **primera foto de la galería** como imagen destacada. Las tres secciones comparten el mismo encabezado (filete de bronce + serif + bajada) y el sitio cierra con un pie.
+  - **Foto destacada:** no se agregó una clave nueva ni una pantalla nueva al panel. Se reusa `getGaleria()[0]`, que es contenido real que la administradora ya cura. Si la galería está vacía o falla, la portada queda sólo con los textos: el error no se muestra dos veces porque la sección de galería ya lo muestra con su "Reintentar". Ese es el único pedido nuevo del home y está cubierto por dos tests.
+  - **Lo que NO se hizo, a propósito:** el pie **no** tiene teléfono, dirección ni horarios, porque son datos reales del salón y no se inventan. Quedan para la etapa de datos reales, y conviene que sean textos editables desde el panel.
+  - **Suite:** `Tests 292 passed (292)` en 22 archivos (291 + los 2 del hero; 1 es de regresión del vacío). `ng build` compila; el aviso de presupuesto de bundle (592.61 kB) es previo y no lo introduce este cambio.

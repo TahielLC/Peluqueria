@@ -8,39 +8,50 @@ import { MENSAJES, CargaDeContenido } from '../estados';
   selector: 'app-servicios',
   standalone: true,
   template: `
-    <section id="servicios" class="py-12 bg-gray-50 px-4">
-      <div class="max-w-6xl mx-auto text-center">
-        <h2 class="text-3xl font-bold mb-4 text-gray-800">{{ textos.texto('servicios_titulo') }}</h2>
-        <p class="text-gray-600 mb-10">{{ textos.texto('servicios_bajada') }}</p>
+    <section id="servicios" class="bg-crema px-5 py-20 md:py-28">
+      <div class="mx-auto max-w-6xl">
+        <div class="mx-auto max-w-2xl text-center">
+          <span class="mx-auto block h-px w-12 bg-bronce/60" aria-hidden="true"></span>
+          <h2 class="mt-6 font-display text-3xl font-light tracking-tight text-tinta sm:text-4xl">
+            {{ textos.texto('servicios_titulo') }}
+          </h2>
+          <p class="mt-4 text-base leading-relaxed text-humo">{{ textos.texto('servicios_bajada') }}</p>
+        </div>
 
         @if (cargando()) {
-          <p class="text-gray-400 py-12" role="status">{{ mensajes.cargando }}</p>
+          <p class="py-16 text-center text-humo/70" role="status">{{ mensajes.cargando }}</p>
         } @else if (error()) {
-          <div class="py-12">
-            <p class="text-gray-600 mb-6">{{ error() }}</p>
+          <div class="py-16 text-center">
+            <p class="text-humo">{{ error() }}</p>
             <button
               type="button"
               (click)="cargar()"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+              class="mt-6 rounded-full bg-tinta px-6 py-2.5 text-sm font-medium text-crema transition-colors hover:bg-bronce-oscuro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronce focus-visible:ring-offset-2"
             >
               {{ mensajes.reintentar }}
             </button>
           </div>
         } @else if (servicios().length === 0) {
-          <p class="text-gray-400 py-12">Todavía no hay servicios cargados.</p>
+          <p class="py-16 text-center text-humo/70">Todavía no hay servicios cargados.</p>
         } @else {
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            @for (servicio of servicios(); track servicio.id) {
-              <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow text-left flex flex-col">
-                <div class="p-6 flex flex-col flex-1">
-                  <h3 class="text-xl font-semibold text-gray-800">{{ servicio.nombre }}</h3>
-                  <p class="text-gray-500 text-sm mt-3 flex-1">{{ servicio.descripcion }}</p>
-                  <div class="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
-                    <span class="text-indigo-600 font-medium text-sm">{{ servicio.duracionMinutos }} min</span>
-                    <span class="text-2xl font-bold text-gray-800">{{ precio(servicio.precio) }}</span>
-                  </div>
+          <div class="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+            @for (servicio of servicios(); track servicio.id; let i = $index) {
+              <article
+                class="flex flex-col rounded-3xl border border-linea bg-white p-7 text-left transition duration-300 hover:-translate-y-1 hover:border-bronce/40 hover:shadow-[0_24px_45px_-30px_rgba(34,28,24,0.5)]"
+              >
+                <span class="font-display text-sm tracking-[0.2em] text-bronce/70">{{ indice(i) }}</span>
+                <h3 class="mt-3 font-display text-2xl leading-snug text-tinta">{{ servicio.nombre }}</h3>
+                <p class="mt-3 flex-1 text-sm leading-relaxed text-humo">{{ servicio.descripcion }}</p>
+
+                <div class="mt-7 flex items-end justify-between gap-4 border-t border-linea/70 pt-5">
+                  <span
+                    class="rounded-full bg-arena px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-humo"
+                  >
+                    {{ servicio.duracionMinutos }} min
+                  </span>
+                  <span class="font-display text-3xl leading-none text-tinta">{{ precio(servicio.precio) }}</span>
                 </div>
-              </div>
+              </article>
             }
           </div>
         }
@@ -81,5 +92,10 @@ export class ServiciosComponent implements OnInit {
 
   precio(valor: number): string {
     return `$${Number.isInteger(valor) ? valor : valor.toFixed(2)}`;
+  }
+
+  /** El número editorial de cada tarjeta: "01", "02", "03". */
+  indice(posicion: number): string {
+    return String(posicion + 1).padStart(2, '0');
   }
 }

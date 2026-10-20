@@ -1,1 +1,62 @@
 @import "tailwindcss";
+
+/*
+ * Identidad visual del sitio.
+ *
+ * POR QUÉ TOKENS Y NO COLORES SUELTOS EN LAS PLANTILLAS
+ * El sitio tenía `slate-900` e `indigo-600` repetidos en cuatro plantillas: para
+ * cambiar el rumbo había que tocar todos los archivos y era fácil dejar uno
+ * atrás. Acá el rumbo vive en un solo bloque y las plantillas piden nombres
+ * (`bg-crema`, `text-bronce`), no valores.
+ *
+ * La paleta es cálida y editorial a propósito: las fotos de trabajos y de
+ * personas se leen mejor sobre neutros cálidos que sobre gris azulado, y el
+ * bronce acompaña el rubio, el castaño y la piel sin competir con ellos.
+ */
+@theme {
+  /* Superficies */
+  --color-crema: #faf6f0;
+  --color-arena: #f1e8dc;
+  --color-linea: #e3d6c6;
+
+  /* Tinta: el casi-negro cálido del texto y del pie */
+  --color-tinta: #221c18;
+  --color-humo: #6e6156;
+
+  /* Acento. `claro` es para superficies oscuras: el bronce base no contrasta. */
+  --color-bronce: #a9744f;
+  --color-bronce-oscuro: #8b5a38;
+  --color-bronce-claro: #cba078;
+
+  /* Tipografía: serif de titulares + sans de lectura */
+  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-crema font-sans text-tinta antialiased;
+  }
+
+  /* La barra de navegación es pegajosa: sin este margen, un ancla (#galeria)
+     deja el título de la sección escondido debajo de la barra. */
+  section[id] {
+    scroll-margin-top: 5rem;
+  }
+
+  ::selection {
+    background-color: var(--color-bronce);
+    color: var(--color-crema);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { HomeComponent } from './home.component';
-import { ClaveDeTexto } from '../../models/salon.model';
+import { ClaveDeTexto, TrabajoGaleria } from '../../models/salon.model';
 import { AppointmentService } from '../../services/appointment.service';
 import { TextosSitioService } from '../../services/textos-sitio.service';
 
@@ -40,7 +40,10 @@ const DE_LA_BASE = 'Texto que viene de la base';
  * también: el objeto de esta prueba son los textos del hero, no la lista de
  * servicios.
  */
-function armar(valores: Partial<Record<ClaveDeTexto, string>> = {}) {
+function armar(
+  valores: Partial<Record<ClaveDeTexto, string>> = {},
+  galeria: TrabajoGaleria[] = [],
+) {
   const textos = new TextosFalsos(valores);
 
   TestBed.resetTestingModule();
@@ -52,7 +55,7 @@ function armar(valores: Partial<Record<ClaveDeTexto, string>> = {}) {
         useValue: {
           getServicios: () => of([]),
           getPeluqueros: () => of([]),
-          getGaleria: () => of([]),
+          getGaleria: () => of(galeria),
         },
       },
     ],
@@ -101,6 +104,31 @@ describe('HomeComponent', () => {
 
       expect(texto()).toContain('Peluquería Don Juan');
       expect(texto()).not.toContain('Peluquería Estilo & Arte');
+    });
+  });
+
+  describe('foto destacada del hero', () => {
+    it('usa la primera foto de la galería: contenido real que ya cura la administradora', () => {
+      const { fixture } = armar({}, [
+        {
+          id: 7,
+          titulo: 'Trabajo destacado',
+          categoria: 'Corte',
+          imagenUrl: 'https://ejemplo.test/foto-7.jpg',
+        },
+      ]);
+
+      const foto = fixture.nativeElement.querySelector(
+        '[data-hero] img',
+      ) as HTMLImageElement | null;
+
+      expect(foto?.getAttribute('src')).toBe('https://ejemplo.test/foto-7.jpg');
+    });
+
+    it('sin galería no inventa una foto: el hero queda sólo con los textos', () => {
+      const { fixture } = armar({}, []);
+
+      expect(fixture.nativeElement.querySelector('[data-hero]')).toBeNull();
     });
   });
 
