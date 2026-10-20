@@ -14,43 +14,46 @@ const DURATION = '900ms';
   selector: 'app-gallery',
   standalone: true,
   template: `
-    <section id="galeria" class="relative bg-black py-16 overflow-hidden">
-      <!-- Halo indigo que simula la luz cayendo sobre la puerta -->
+    <section id="galeria" class="relative overflow-hidden bg-tinta py-20 md:py-28">
+      <!-- Halo cálido que simula la luz cayendo sobre la puerta -->
       <div
         class="pointer-events-none absolute inset-0"
-        style="background: radial-gradient(55% 55% at 50% 42%, rgba(79,70,229,0.38) 0%, rgba(0,0,0,0) 72%)"
+        style="background: radial-gradient(55% 55% at 50% 42%, rgba(169,116,79,0.34) 0%, rgba(34,28,24,0) 72%)"
       ></div>
       <div
         class="pointer-events-none absolute inset-x-0 bottom-0 h-40"
-        style="background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0) 100%)"
+        style="background: linear-gradient(to top, rgba(34,28,24,0.95) 0%, rgba(34,28,24,0) 100%)"
       ></div>
 
-      <div class="relative max-w-6xl mx-auto px-4">
-        <h2 class="text-3xl md:text-4xl font-bold text-center mb-3 text-white tracking-tight">
-          {{ textos.texto('galeria_titulo') }}
-        </h2>
-        <p class="text-gray-400 text-center mb-12">
-          {{ textos.texto('galeria_bajada') }}
-        </p>
+      <div class="relative mx-auto max-w-6xl px-5">
+        <div class="mx-auto max-w-2xl text-center">
+          <span class="mx-auto block h-px w-12 bg-bronce-claro/70" aria-hidden="true"></span>
+          <h2 class="mt-6 font-display text-3xl font-light tracking-tight text-crema sm:text-4xl">
+            {{ textos.texto('galeria_titulo') }}
+          </h2>
+          <p class="mt-4 text-base leading-relaxed text-crema/60">
+            {{ textos.texto('galeria_bajada') }}
+          </p>
+        </div>
 
         @if (cargando()) {
-          <p class="text-center text-gray-400 py-24" role="status">{{ mensajes.cargando }}</p>
+          <p class="py-24 text-center text-crema/50" role="status">{{ mensajes.cargando }}</p>
         } @else if (error()) {
           <div class="py-24 text-center">
-            <p class="text-gray-400 mb-6">{{ error() }}</p>
+            <p class="text-crema/60">{{ error() }}</p>
             <button
               type="button"
               (click)="cargar()"
-              class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2 rounded-full transition-colors"
+              class="mt-6 rounded-full bg-bronce px-6 py-2.5 text-sm font-medium text-crema transition-colors hover:bg-bronce-oscuro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronce-claro focus-visible:ring-offset-2 focus-visible:ring-offset-tinta"
             >
               {{ mensajes.reintentar }}
             </button>
           </div>
         } @else if (total() === 0) {
-          <p class="text-center text-gray-600 py-24">Todavía no hay trabajos para mostrar.</p>
+          <p class="py-24 text-center text-crema/40">Todavía no hay trabajos para mostrar.</p>
         } @else {
           <div
-            class="relative select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-2xl"
+            class="relative mt-12 select-none rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce-claro"
             role="group"
             aria-roledescription="carrusel"
             aria-label="Galería de trabajos"
@@ -62,7 +65,7 @@ const DURATION = '900ms';
           >
             <!-- Sombra elipsoidal en el "piso" -->
             <div
-              class="pointer-events-none absolute left-1/2 top-1/2 h-56 w-[620px] -translate-x-1/2 translate-y-40 rounded-[50%] bg-indigo-600/25 blur-3xl"
+              class="pointer-events-none absolute left-1/2 top-1/2 h-56 w-[620px] -translate-x-1/2 translate-y-40 rounded-[50%] bg-bronce/25 blur-3xl"
             ></div>
 
             <!-- ESCENARIO 3D -->
@@ -104,10 +107,10 @@ const DURATION = '900ms';
                       class="absolute bottom-0 left-0 p-6 transition-opacity duration-500"
                       [style.opacity]="isActive(i) ? 1 : 0"
                     >
-                      <span class="text-xs uppercase tracking-widest text-indigo-300 mb-2 inline-block">
+                      <span class="mb-2 inline-block text-[11px] uppercase tracking-[0.28em] text-bronce-claro">
                         {{ item.categoria }}
                       </span>
-                      <h3 class="text-2xl font-semibold text-white">{{ item.titulo }}</h3>
+                      <h3 class="font-display text-2xl font-light text-crema">{{ item.titulo }}</h3>
                     </figcaption>
                   </figure>
                 }
@@ -116,16 +119,16 @@ const DURATION = '900ms';
 
             <!-- CONTROLES -->
             <div
-              class="relative flex items-center justify-center gap-6 -mt-6"
+              class="relative -mt-6 flex items-center justify-center gap-6"
             >
               @if (hasMultiple()) {
                 <button
                   type="button"
                   (click)="prev()"
                   aria-label="Trabajo anterior"
-                  class="grid h-12 w-12 place-items-center rounded-full border border-white/15 bg-white/5 text-white backdrop-blur-md transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                  class="grid h-12 w-12 place-items-center rounded-full border border-crema/15 bg-crema/5 text-crema backdrop-blur-md transition hover:border-bronce-claro/50 hover:bg-crema/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce-claro"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
@@ -139,8 +142,8 @@ const DURATION = '900ms';
                       [attr.aria-current]="isActive(i)"
                       [class]="
                         isActive(i)
-                          ? 'h-1.5 w-8 rounded-full bg-indigo-500 transition-all duration-500'
-                          : 'h-1.5 w-1.5 rounded-full bg-white/25 hover:bg-white/50 transition-all duration-500'
+                          ? 'h-1.5 w-8 rounded-full bg-bronce-claro transition-all duration-500'
+                          : 'h-1.5 w-1.5 rounded-full bg-crema/25 transition-all duration-500 hover:bg-crema/50'
                       "
                     ></button>
                   }
@@ -150,16 +153,16 @@ const DURATION = '900ms';
                   type="button"
                   (click)="next()"
                   aria-label="Trabajo siguiente"
-                  class="grid h-12 w-12 place-items-center rounded-full border border-white/15 bg-white/5 text-white backdrop-blur-md transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                  class="grid h-12 w-12 place-items-center rounded-full border border-crema/15 bg-crema/5 text-crema backdrop-blur-md transition hover:border-bronce-claro/50 hover:bg-crema/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-bronce-claro"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               }
             </div>
 
-            <p class="text-center text-gray-600 text-xs mt-6">
+            <p class="mt-6 text-center text-xs text-crema/40">
               Deslizá, usá las flechas o las teclas ← →
             </p>
           </div>
