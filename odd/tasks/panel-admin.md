@@ -106,7 +106,7 @@
 | T11 | S12 | inline | hecha (`6ff2ad0`) | Manual en `docs/manual-administradora.md`, aparte y sin código. |
 | T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
 | T13 | S13, S6 | delegada (contexto) | hecha (`df363ef`) | Alta y baja del equipo, igual que la galería. |
-| T14 | S14 | inline | pendiente | v1 sin reserva: sacar el simulacro de turnos y corregir el manual. |
+| T14 | S14 | inline | hecha (`460dd82`) | v1 sin reserva: sacar el simulacro de turnos y corregir el manual. |
 
 ## Log
 
@@ -300,3 +300,8 @@
   - **Corrección de una afirmación mía:** dije que "el botón de reservar miente". **No hay ningún formulario de reserva en la UI**, nunca lo hubo: `home.component.ts` monta sólo servicios, galería y equipo, y `git log --all --diff-filter=D` no muestra ninguna componente de turnos borrada. Lo que sí existía era `agendarTurno()` en el servicio, un método **sin ningún llamador** que devolvía "¡Turno registrado con éxito!" y nada más. El riesgo era real pero potencial: quien lo conectara a un botón publicaba la mentira.
   - **Decisión:** se elimina el simulacro (método, modelo `Turno` y su test) y se corrige el manual, que afirmaba la existencia de un botón inexistente. No se agrega ninguna UI de turnos: la v1 no promete reservas.
   - **Alcance acordado para el futuro:** cuando se pague la funcionalidad, la reserva va con lógica de servidor. La separación no es "migrar el backend": la lectura pública (textos, servicios, equipo, galería) puede quedarse en Supabase con RLS; lo que se mueve a Java son **las escrituras y el dominio de turnos**, con una sola autoridad de permisos a la vez.
+- **L69** (2026-10-19) — **T14 hecho** (`460dd82`).
+  - **Qué se fue:** `agendarTurno()` (devolvía éxito sin persistir), el modelo `Turno` y su test; también las importaciones de `of` y `delay`, que sólo existían para ese método.
+  - **Qué se corrigió:** el manual decía que el sitio tenía un botón de reservar. Ahora dice que **no hay reserva de turnos** en la v1 y que los turnos se toman por WhatsApp o teléfono.
+  - **Verificación del `Check` de S14:** `grep -rniE "reservar|agendar|turno"` en el código de la app devuelve **sólo dos comentarios** que explican por qué la baja es lógica (para no romper turnos futuros). Ni UI, ni método, ni mensaje que prometa un turno.
+  - **Suite:** `Tests 290 passed (290)` en 22 archivos. Bajó uno respecto de 291, y es exactamente el test del método eliminado: no se perdió cobertura de nada que exista.
