@@ -264,7 +264,7 @@ create policy "admin borra fotos"
 insert into public.textos_sitio (clave, valor, etiqueta, ayuda, orden) values
   ('hero_badge',       'Estilo & Vanguardia',
    'Frase chica arriba del título', 'La línea corta que aparece sobre el nombre del salón.', 1),
-  ('hero_titulo',      'Peluquería Estilo & Arte',
+  ('hero_titulo',      'LA+ESTUDIO',
    'Nombre del salón', 'Es el título más grande de la página de inicio.', 2),
   ('hero_subtitulo',   'El lugar donde tu imagen se transforma con las últimas tendencias en cortes, barbas y estilismo.',
    'Frase de presentación', 'Una o dos líneas contando qué hace el salón.', 3),

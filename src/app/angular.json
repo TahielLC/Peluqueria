@@ -21,7 +21,12 @@
             "styles": [
               "styles.css"
             ],
-            "assets": []
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ]
           },
           "configurations": {
             "production": {
