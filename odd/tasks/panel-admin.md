@@ -70,6 +70,10 @@
   *Criterio:* la persona nueva queda al final de la lista y se ve en el sitio; la baja la saca del sitio sin perder nada; el panel lista también a las personas dadas de baja, apagadas y con "Volver a publicar".
   *Check:* agregar una persona con foto, verla en el sitio, darla de baja, comprobar que desaparece, volver a publicarla y verla igual que antes.
 
+- **S14** — En la v1 el sitio **no ofrece reserva de turnos**: no hay formulario, botón ni mensaje que simule confirmar un turno, y no queda ningún camino de código que devuelva éxito sin guardar. Los turnos se siguen tomando por teléfono o WhatsApp.
+  *Criterio:* el manual del panel no menciona un botón que no existe; el servicio no expone un método que prometa un turno sin persistirlo.
+  *Check:* buscar "reservar", "turno" y "agendar" en la UI y en el servicio no devuelve nada que prometa un turno.
+
 ## Supuestos (ASUMIDOS — CONFIRMAR)
 
 - **A1** — Hay **una sola** administradora, con una única cuenta. No hay roles ni varios usuarios.
@@ -102,6 +106,7 @@
 | T11 | S12 | inline | hecha (`6ff2ad0`) | Manual en `docs/manual-administradora.md`, aparte y sin código. |
 | T12 | S11, S8 | delegada (contexto) | hecha (`88a1abd`) | Encuadre de la foto antes de subirla (recorte 4:5). |
 | T13 | S13, S6 | delegada (contexto) | hecha (`df363ef`) | Alta y baja del equipo, igual que la galería. |
+| T14 | S14 | inline | hecha (`460dd82`) | v1 sin reserva: sacar el simulacro de turnos y corregir el manual. |
 
 ## Log
 
@@ -291,3 +296,12 @@
   - **Verificación:** `Tests 291 passed (291)` en 22 archivos. Mutación: sacar el chequeo de filas en `cambiarActivoDePeluquero` pone rojo `si la base no actualiza ninguna fila, FALLA en vez de decir que cambió` (1 failed / 290); restaurado → 291/291.
   - **El manual se actualiza en el mismo PR:** la sección 7 ahora explica el alta y la baja, y se sacó de la sección 11 la frase que decía que el equipo no se administra desde el panel. Las etiquetas nuevas ("Agregar una persona", "La persona nueva queda al final de la lista.") se verificaron contra el código, igual que en T11.
   - **Pendiente de prueba real:** agregar una persona con foto desde el navegador, verla en el sitio, darla de baja, comprobar que desaparece y volver a publicarla. La suite usa cliente falso y no prueba la base real.
+- **L68** (2026-10-19) — **La v1 se publica sin turnos**, y hay que corregir algo que yo dije mal. Textual: "si esconde el formulario de reserva. De igual manera cuando empecemos con la funcionalidad de los turnos vamos a tener que migrar cosas a java , separando responsabilidades del backend con el front, te parece correcto eso ?".
+  - **Corrección de una afirmación mía:** dije que "el botón de reservar miente". **No hay ningún formulario de reserva en la UI**, nunca lo hubo: `home.component.ts` monta sólo servicios, galería y equipo, y `git log --all --diff-filter=D` no muestra ninguna componente de turnos borrada. Lo que sí existía era `agendarTurno()` en el servicio, un método **sin ningún llamador** que devolvía "¡Turno registrado con éxito!" y nada más. El riesgo era real pero potencial: quien lo conectara a un botón publicaba la mentira.
+  - **Decisión:** se elimina el simulacro (método, modelo `Turno` y su test) y se corrige el manual, que afirmaba la existencia de un botón inexistente. No se agrega ninguna UI de turnos: la v1 no promete reservas.
+  - **Alcance acordado para el futuro:** cuando se pague la funcionalidad, la reserva va con lógica de servidor. La separación no es "migrar el backend": la lectura pública (textos, servicios, equipo, galería) puede quedarse en Supabase con RLS; lo que se mueve a Java son **las escrituras y el dominio de turnos**, con una sola autoridad de permisos a la vez.
+- **L69** (2026-10-19) — **T14 hecho** (`460dd82`).
+  - **Qué se fue:** `agendarTurno()` (devolvía éxito sin persistir), el modelo `Turno` y su test; también las importaciones de `of` y `delay`, que sólo existían para ese método.
+  - **Qué se corrigió:** el manual decía que el sitio tenía un botón de reservar. Ahora dice que **no hay reserva de turnos** en la v1 y que los turnos se toman por WhatsApp o teléfono.
+  - **Verificación del `Check` de S14:** `grep -rniE "reservar|agendar|turno"` en el código de la app devuelve **sólo dos comentarios** que explican por qué la baja es lógica (para no romper turnos futuros). Ni UI, ni método, ni mensaje que prometa un turno.
+  - **Suite:** `Tests 290 passed (290)` en 22 archivos. Bajó uno respecto de 291, y es exactamente el test del método eliminado: no se perdió cobertura de nada que exista.

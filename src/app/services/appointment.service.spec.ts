@@ -983,27 +983,6 @@ describe('AppointmentService', () => {
     });
   });
 
-  describe('agendarTurno', () => {
-    // Este método NO se tocó en esta feature (los turnos están fuera de alcance).
-    // El test queda para confirmar que su comportamiento no cambió.
-    it('reporta exito al agendar', async () => {
-      const { service } = armar({});
-
-      const resultado = await firstValueFrom(
-        service.agendarTurno({
-          clienteId: 1,
-          servicioId: 1,
-          peluqueroId: 1,
-          fechaHora: '2026-11-01T10:00:00',
-          estado: 'PENDIENTE',
-        }),
-      );
-
-      expect(resultado.success).toBe(true);
-      expect(resultado.message).toBeTruthy();
-    });
-  });
-
   describe('getTextos', () => {
     it('devuelve los textos con su etiqueta y su ayuda, en el orden del panel', async () => {
       const { service, consultas } = armar({

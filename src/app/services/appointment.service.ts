@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, from, map, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { Observable, from, map } from 'rxjs';
 import {
   DatosDePeluquero,
   DatosDeServicio,
@@ -8,7 +7,6 @@ import {
   PeluqueroAdministrable,
   Servicio,
   ServicioAdministrable,
-  Turno,
 } from '../models/appointment.model';
 import {
   ClaveDeTexto,
@@ -634,15 +632,5 @@ export class AppointmentService {
         }
       }),
     );
-  }
-
-  /**
-   * ESTE MÉTODO TODAVÍA NO GUARDA NADA. Devuelve éxito sin persistir, igual que
-   * antes de este cambio. Reservar turnos está fuera del alcance de esta feature
-   * (son turnos, no contenido, y necesitan su propia tabla y sus propias
-   * políticas). Queda anotado como deuda, no como algo resuelto.
-   */
-  agendarTurno(turno: Turno): Observable<{ success: boolean; message: string }> {
-    return of({ success: true, message: '¡Turno registrado con éxito!' }).pipe(delay(500));
   }
 }

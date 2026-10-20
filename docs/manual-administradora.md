@@ -184,7 +184,7 @@ Consejos para que quede bien:
 
 Para que no lo busques donde no está:
 
-- **Turnos.** El botón de reservar del sitio todavía no guarda turnos ni manda avisos. Los turnos se siguen tomando como siempre: por WhatsApp, por teléfono o en el cuaderno.
+- **Turnos.** El sitio **no tiene reserva de turnos**: no hay formulario ni botón para reservar. Los turnos se siguen tomando como siempre: por WhatsApp, por teléfono o en el cuaderno.
 - **Contraseña.** No se cambia desde el panel.
 - **Varias cuentas.** Hay una sola cuenta del salón. Si trabajan varias personas, comparten esa cuenta: lo que cambia una, lo ven las demás.
 
