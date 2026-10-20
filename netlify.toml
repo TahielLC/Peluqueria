@@ -1,0 +1,34 @@
+# Configuración de despliegue en Netlify.
+#
+# POR QUÉ ESTE ARCHIVO EXISTE
+# El proyecto de npm no vive en la raíz del repo, sino en `src/app`. Si esos
+# datos se cargan a mano en el panel de Netlify, el despliegue deja de estar en
+# el repositorio: nadie puede reproducirlo, y un cambio de rama o un sitio
+# recreado obliga a recordar valores de memoria.
+#
+# Con `base` puesto, la ruta de `publish` se resuelve RELATIVA a `src/app`, así
+# que es `dist/peluqueria-app/browser` y no la ruta completa desde la raíz.
+
+[build]
+  base = "src/app"
+  command = "npm ci && npm run build"
+  publish = "dist/peluqueria-app/browser"
+
+[build.environment]
+  # Angular 22 necesita Node 20.19+ o 22.12+. Fijarlo evita que el build cambie
+  # solo el día que Netlify mueva su versión por defecto.
+  NODE_VERSION = "22"
+
+# La app tiene rutas del lado del cliente (`/admin`). Sin esta regla, recargar
+# en `/admin` devuelve el 404 de Netlify en vez de la aplicación.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
