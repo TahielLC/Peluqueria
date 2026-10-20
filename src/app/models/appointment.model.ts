@@ -58,12 +58,3 @@ export interface DatosDePeluquero {
   /** Vacía = sin foto. */
   fotoUrl: string;
 }
-
-export interface Turno {
-  id?: number;
-  clienteId: number;
-  servicioId: number;
-  peluqueroId: number;
-  fechaHora: string;
-  estado: 'PENDIENTE' | 'CONFIRMADO' | 'CANCELADO';
-}
