@@ -2,11 +2,32 @@
 <html lang="es">
   <head>
     <meta charset="utf-8">
-    <title>Peluquería Estilo & Arte</title>
+
+    <!--
+      El nombre de la pestaña es estático: el salón tiene un solo nombre y no
+      conviene que dependa de que la base responda. El texto del hero sí es
+      editable desde el panel; si algún día cambia la marca, este título es una
+      línea acá.
+    -->
+    <title>LA+ESTUDIO — Peluquería</title>
+
     <base href="/">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Peluquería Estilo & Arte: cortes, color, barba y estilismo. Mirá nuestros trabajos y conocé al equipo.">
+    <meta name="description" content="LA+ESTUDIO — Peluquería: cortes, color, barba y estilismo. Mirá nuestros trabajos y conocé al equipo.">
     <meta name="theme-color" content="#0b0c0a">
+
+    <!-- Ícono de la pestaña: el "+" de la marca en oro sobre negro. El SVG es
+         para navegadores modernos; el PNG cubre a los que no lo leen. -->
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+    <!-- Cómo se ve el enlace cuando lo comparten por WhatsApp. Sin imagen fija:
+         la foto de portada la elige la administradora y no tiene URL estable. -->
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="es_AR">
+    <meta property="og:title" content="LA+ESTUDIO — Peluquería">
+    <meta property="og:description" content="Cortes, color, barba y estilismo. Mirá nuestros trabajos y conocé al equipo.">
 
     <!--
       Las tipografías van por CDN: son dos familias, no justifican un paso de

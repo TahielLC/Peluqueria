@@ -1,6 +1,6 @@
 # Manual del panel
 
-**Peluquería Estilo & Arte**
+**LA+ESTUDIO**
 
 Este manual es para la persona que atiende el salón. No hace falta saber de computación: si sabés usar WhatsApp y elegir una foto, podés usar el panel.
 

@@ -15,7 +15,7 @@ import { AppointmentService } from './appointment.service';
  */
 export const TEXTOS_POR_DEFECTO: Record<ClaveDeTexto, string> = {
   hero_badge: 'Estilo & Vanguardia',
-  hero_titulo: 'Peluquería Estilo & Arte',
+  hero_titulo: 'LA+ESTUDIO',
   hero_subtitulo:
     'El lugar donde tu imagen se transforma con las últimas tendencias en cortes, barbas y estilismo.',
   hero_cta: 'Ver Trabajos',
