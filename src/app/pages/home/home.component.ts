@@ -5,11 +5,12 @@ import { GalleryComponent } from "../../components/gallery/gallery.component";
 import { ServiciosComponent } from "../../components/servicios/servicios.component";
 import { AppointmentService } from "../../services/appointment.service";
 import { TextosSitioService } from "../../services/textos-sitio.service";
+import { EnlaceInternoDirective } from "../../directives/enlace-interno.directive";
 
 @Component({
   selector: "app-home",
   standalone: true,
-  imports: [CommonModule, StaffComponent, GalleryComponent, ServiciosComponent],
+  imports: [CommonModule, StaffComponent, GalleryComponent, ServiciosComponent, EnlaceInternoDirective],
   template: `
     <div class="min-h-screen bg-noche">
       <!-- Barra: vive acá y no en el layout porque la portada es la única página
